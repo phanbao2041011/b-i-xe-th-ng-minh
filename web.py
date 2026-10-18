@@ -10,6 +10,7 @@ st.set_page_config(
 )
 
 # ==========================================
+# ==========================================
 # 2. KHỞI TẠO BỘ NHỚ BÃI ĐỖ XE (60 Ô / TẦNG)
 # ==========================================
 if "parking_slots" not in st.session_state:
@@ -20,14 +21,16 @@ if "parking_slots" not in st.session_state:
         for y in range(1, 7):
             for x in range(1, 11):
                 slot_id = f"X{x}Y{y}"
-                is_priority_slot = True if (floor == "Tầng 1" and x <= 2) else False
+                
+                # Các ô nằm sát Làn đường chính (Hàng Y3 và Y4) ở Tầng 1 là ô ưu tiên
+                is_priority_slot = True if (floor == "Tầng 1" and y in [3, 4] and x <= 5) else False
                 
                 slots.append({
                     "floor": floor,
                     "id": slot_id,
                     "x": x,
                     "y": y,
-                    "status": "TRỐNG",  # Có 3 trạng thái: TRỐNG, ĐÃ ĐỖ, ĐÃ KHÓA
+                    "status": "TRỐNG",
                     "is_priority_slot": is_priority_slot
                 })
                 
