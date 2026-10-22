@@ -4,52 +4,67 @@ import streamlit as st
 # 1. CẤU HÌNH TRANG WEB
 # ==========================================
 st.set_page_config(
-    page_title="Hệ thống AGV Smart Parking - Block Model",
+    page_title="Hệ thống AGV Smart Parking - Quản lý Block",
     page_icon="🤖",
     layout="wide"
 )
 
 # ==========================================
-# 2. KHỞI TẠO BỘ NHỚ MÔ HÌNH BLOCK (60 Ô / TẦNG)
+# 2. KHỞI TẠO BỘ NHỚ CÁC BLOCK ĐỖ XE
 # ==========================================
-if "parking_slots" not in st.session_state:
-    slots = []
-    floors = ["Tầng 1", "Tầng B1", "Tầng B2"]
-    
-    # Định nghĩa 4 Block xếp hình cho mỗi tầng
-    # Block A: Gần Cổng AGV nhất (D=1) | Block B: (D=2) | Block C: (D=3) | Block D: Sâu nhất (D=4)
-    blocks_def = {
-        "Block A": {"dist": 1, "cols": range(1, 4), "rows": range(4, 7), "color": "#ebf8ff"},
-        "Block B": {"dist": 2, "cols": range(4, 8), "rows": range(4, 7), "color": "#f0fff4"},
-        "Block C": {"dist": 3, "cols": range(1, 5), "rows": range(1, 4), "color": "#fffaf0"},
-        "Block D": {"dist": 4, "cols": range(5, 11), "rows": range(1, 4), "color": "#faf5ff"}
-    }
-    
-    for floor in floors:
-        for block_name, b_info in blocks_def.items():
-            for y in b_info["rows"]:
-                for x in b_info["cols"]:
-                    # Ô thuộc Block A ở Tầng 1 nằm ngay lối vào là ô ưu tiên
-                    is_priority_slot = True if (floor == "Tầng 1" and block_name == "Block A" and y == 4 and x <= 2) else False
-                    
-                    slots.append({
-                        "floor": floor,
-                        "id": f"X{x}Y{y}",
-                        "x": x,
-                        "y": y,
-                        "block": block_name,
-                        "distance": b_info["dist"],
-                        "status": "TRỐNG",  # TRỐNG, ĐÃ ĐỖ, ĐÃ KHÓA
-                        "is_priority_slot": is_priority_slot
-                    })
-                
-    st.session_state.parking_slots = slots
+if "blocks" not in st.session_state:
+    st.session_state.blocks = [
+        {
+            "id": "Block A",
+            "name": "BLOCK A (Sát Cổng AGV)",
+            "capacity": 15,
+            "occupied": 0,
+            "is_locked": False,
+            "distance": 1,
+            "color": "#ebf8ff",
+            "border_color": "#3182ce",
+            "desc": "Ưu tiên: Xe trọng lượng lớn / Đỗ rất ngắn hạn"
+        },
+        {
+            "id": "Block B",
+            "name": "BLOCK B (Khu vực Phía Trên)",
+            "capacity": 15,
+            "occupied": 0,
+            "is_locked": False,
+            "distance": 2,
+            "color": "#f0fff4",
+            "border_color": "#38a169",
+            "desc": "Ưu tiên: Xe tải trọng trung bình / Đỗ ngắn hạn"
+        },
+        {
+            "id": "Block C",
+            "name": "BLOCK C (Khu vực Phía Dưới)",
+            "capacity": 15,
+            "occupied": 0,
+            "is_locked": False,
+            "distance": 3,
+            "color": "#fffaf0",
+            "border_color": "#dd6b20",
+            "desc": "Ưu tiên: Xe đỗ trung hạn"
+        },
+        {
+            "id": "Block D",
+            "name": "BLOCK D (Khu vực Góc Sâu)",
+            "capacity": 15,
+            "occupied": 0,
+            "is_locked": False,
+            "distance": 4,
+            "color": "#faf5ff",
+            "border_color": "#805ad5",
+            "desc": "Ưu tiên: Xe đỗ dài hạn / Xe nhẹ"
+        }
+    ]
 
-if "last_assigned_slot" not in st.session_state:
-    st.session_state.last_assigned_slot = None
+if "last_assigned_res" not in st.session_state:
+    st.session_state.last_assigned_res = None
 
 # ==========================================
-# 3. THANH BÊN (SIDEBAR) - KHAI BÁO THÔNG TIN XE & ROBOT AGV
+# 3. THANH BÊN (SIDEBAR) - KHAI BÁO THÔNG TIN
 # ==========================================
 st.sidebar.header("📋 Khai báo Thông tin Xe vào Cổng")
 
@@ -69,241 +84,219 @@ weight = st.sidebar.number_input(
     max_value=5000,
     value=1500,
     step=100,
-    help="Robot AGV sẽ tính toán lượng điện năng tiêu thụ dựa trên khối lượng xe."
+    help="Robot AGV sẽ tính toán năng lượng tiêu thụ dựa trên khối lượng xe."
 )
 
-# --- CHẾ ĐỘ QUẢN TRỊ VIÊN (ADMIN) ---
+# --- CHẾ ĐỘ QUẢN TRỊ VIÊN (ADMIN MODE) ---
 st.sidebar.markdown("---")
 admin_mode = st.sidebar.checkbox("🛡️ Chế độ Quản trị viên (Admin)")
 
 if admin_mode:
-    st.sidebar.subheader("⚙️ Quản lý Khóa / Mở ô đỗ")
-    selected_floor_admin = st.sidebar.selectbox("Chọn tầng:", ["Tầng 1", "Tầng B1", "Tầng B2"])
+    st.sidebar.subheader("⚙️ Quản lý Khóa / Mở Block")
     
-    floor_slot_ids = [s["id"] for s in st.session_state.parking_slots if s["floor"] == selected_floor_admin]
-    
-    selected_slots_to_toggle = st.sidebar.multiselect(
-        "Chọn các ô cần thao tác:",
-        options=floor_slot_ids,
-        placeholder="Chọn một hoặc nhiều ô..."
+    selected_block_ids = st.sidebar.multiselect(
+        "Chọn Block cần thao tác:",
+        options=["Block A", "Block B", "Block C", "Block D"],
+        placeholder="Chọn Block..."
     )
     
     col_lock, col_unlock = st.sidebar.columns(2)
     
-    if col_lock.button("🔒 Khóa ô", use_container_width=True):
-        if selected_slots_to_toggle:
-            for s in st.session_state.parking_slots:
-                if s["floor"] == selected_floor_admin and s["id"] in selected_slots_to_toggle:
-                    s["status"] = "ĐÃ KHÓA"
-            st.sidebar.success(f"Đã KHÓA {len(selected_slots_to_toggle)} ô tại {selected_floor_admin}!")
+    if col_lock.button("🔒 Khóa Block", use_container_width=True):
+        if selected_block_ids:
+            for b in st.session_state.blocks:
+                if b["id"] in selected_block_ids:
+                    b["is_locked"] = True
+            st.sidebar.success(f"Đã KHÓA các block: {', '.join(selected_block_ids)}")
             st.rerun()
             
-    if col_unlock.button("🔓 Mở khóa", use_container_width=True):
-        if selected_slots_to_toggle:
-            for s in st.session_state.parking_slots:
-                if s["floor"] == selected_floor_admin and s["id"] in selected_slots_to_toggle:
-                    s["status"] = "TRỐNG"
-            st.sidebar.success(f"Đã MỞ KHÓA {len(selected_slots_to_toggle)} ô tại {selected_floor_admin}!")
+    if col_unlock.button("🔓 Mở Block", use_container_width=True):
+        if selected_block_ids:
+            for b in st.session_state.blocks:
+                if b["id"] in selected_block_ids:
+                    b["is_locked"] = False
+            st.sidebar.success(f"Đã MỞ KHÓA các block: {', '.join(selected_block_ids)}")
             st.rerun()
 
     if st.sidebar.button("🔄 Reset toàn bộ bãi đỗ", use_container_width=True):
-        for s in st.session_state.parking_slots:
-            s["status"] = "TRỐNG"
-        st.session_state.last_assigned_slot = None
-        st.sidebar.info("Đã đặt lại tất cả các ô về trạng thái TRỐNG!")
+        for b in st.session_state.blocks:
+            b["occupied"] = 0
+            b["is_locked"] = False
+        st.session_state.last_assigned_res = None
+        st.sidebar.info("Đã khôi phục tất cả các Block về trạng thái trống!")
         st.rerun()
 
 st.sidebar.markdown("---")
 
 # ==========================================
-# 4. THUẬT TOÁN ĐIỀU HÀNH ROBOT AGV & LỰA CHỌN BLOCK
+# 4. THUẬT TOÁN ĐIỀU HÀNH AGV PHÂN BỔ BLOCK
 # ==========================================
-def find_best_slot_agv(duration, weight, is_priority):
-    all_slots = st.session_state.parking_slots
-    floors_order = ["Tầng 1", "Tầng B1", "Tầng B2"]
+def assign_agv_block(weight, duration, is_priority):
+    blocks = st.session_state.blocks
     
-    # 1. Tính toán Điểm Ưu tiên Tối ưu (Urgency Score)
+    # 1. Tính toán Chỉ số Cần thiết Tối ưu (Urgency Score)
     urgency_score = (weight / 1000.0) * 2.5 + (24.0 / (duration + 0.5)) * 3.5
     
-    # 2. Quyết định Block mục tiêu ban đầu
+    # 2. Xác định Block mục tiêu lý tưởng
     if is_priority or urgency_score >= 12.0:
-        target_block = "Block A"  # Gần Cổng AGV nhất
+        target_id = "Block A"
     elif urgency_score >= 8.0:
-        target_block = "Block B"
+        target_id = "Block B"
     elif urgency_score >= 4.0:
-        target_block = "Block C"
+        target_id = "Block C"
     else:
-        target_block = "Block D"  # Sâu nhất
+        target_id = "Block D"
 
-    # 3. Xác định tầng hầm mục tiêu ban đầu
-    if is_priority or duration <= 2.0:
-        target_floor = "Tầng 1"
-    elif duration <= 8.0:
-        target_floor = "Tầng B1"
-    else:
-        target_floor = "Tầng B2"
-
-    start_floor_idx = floors_order.index(target_floor)
-    search_floors = floors_order[start_floor_idx:] + floors_order[:start_floor_idx]
-
+    # Thứ tự tìm kiếm ưu tiên: Block mục tiêu -> Các Block lân cận
     blocks_order = ["Block A", "Block B", "Block C", "Block D"]
-    start_block_idx = blocks_order.index(target_block)
-    search_blocks = blocks_order[start_block_idx:] + blocks_order[:start_block_idx]
+    start_idx = blocks_order.index(target_id)
+    search_order = blocks_order[start_idx:] + blocks_order[:start_idx]
 
-    # DUYỆT QUA CÁC TẦNG VÀ CÁC BLOCK DẠNG MÔ HÌNH XẾP HÌNH
-    for current_floor in search_floors:
-        for current_block in search_blocks:
-            available = [
-                s for s in all_slots 
-                if s["floor"] == current_floor and s["block"] == current_block and s["status"] == "TRỐNG"
-            ]
-
-            if available:
-                selected_slot = available[0]
-                selected_slot["status"] = "ĐÃ ĐỖ"
-                
-                # Ước tính năng lượng AGV tiêu thụ (kWh) = Weight * Distance * Factor
-                agv_energy = round(weight * selected_slot["distance"] * 0.00012, 2)
-                
-                return {
-                    "slot": selected_slot,
-                    "urgency_score": round(urgency_score, 1),
-                    "target_block": target_block,
-                    "assigned_block": current_block,
-                    "agv_energy": agv_energy
-                }
+    # DUYỆT TÌM BLOCK CÒN CHỖ VÀ KHÔNG BỊ KHÓA
+    for b_id in search_order:
+        blk = next((b for b in blocks if b["id"] == b_id), None)
+        if blk and (not blk["is_locked"]) and (blk["occupied"] < blk["capacity"]):
+            # Cộng thêm 1 xe vào Block này
+            blk["occupied"] += 1
+            
+            # Ước tính năng lượng AGV tiêu thụ
+            agv_energy = round(weight * blk["distance"] * 0.00012, 2)
+            
+            return {
+                "assigned_block": blk,
+                "urgency_score": round(urgency_score, 1),
+                "target_id": target_id,
+                "agv_energy": agv_energy
+            }
 
     return None
 
-# NÚT KÍCH HOẠT ROBOT AGV TÌM VỊ TRÍ
+# NÚT KÍCH HOẠT VẬN HÀNH AGV
 if st.sidebar.button("🤖 ROBOT AGV VẬN HÀNH ĐỖ XE", use_container_width=True):
-    result = find_best_slot_agv(duration, weight, is_priority)
-    if result:
-        slot = result["slot"]
-        st.session_state.last_assigned_slot = result
-        st.sidebar.success(f"✅ Robot AGV gán thành công: **{slot['id']}** ({result['assigned_block']} - **{slot['floor']}**)")
+    res = assign_agv_block(weight, duration, is_priority)
+    if res:
+        st.session_state.last_assigned_res = res
+        assigned_b = res["assigned_block"]
+        st.sidebar.success(f"✅ AGV đã chọn: **{assigned_b['id']}** ({assigned_b['occupied']}/{assigned_b['capacity']} xe)")
     else:
-        st.session_state.last_assigned_slot = "FULL"
-        st.sidebar.error("⛔ **ROBOT AGV BÁO: BÃI ĐỖ ĐÃ HẾT TẤT CẢ CÁC Ô TRỐNG KHẢ DỤNG!**")
+        st.session_state.last_assigned_res = "FULL"
+        st.sidebar.error("⛔ **ROBOT AGV BÁO: TẤT CẢ CÁC BLOCK ĐẦY HOẶC BỊ KHÓA!**")
 
 # ==========================================
 # 5. HIỂN THỊ TIÊU ĐỀ & THỐNG KÊ TỔNG QUAN
 # ==========================================
-st.title("🤖 Hệ thống Tối ưu Bãi đỗ xe Tự động (Mô hình Block AGV)")
+st.title("🤖 Hệ thống Tối ưu Bãi đỗ xe Tự động (Mô hình Khối Block)")
 
-total_slots = len(st.session_state.parking_slots)
-occupied_slots = sum(1 for s in st.session_state.parking_slots if s["status"] == "ĐÃ ĐỖ")
-locked_slots = sum(1 for s in st.session_state.parking_slots if s["status"] == "ĐÃ KHÓA")
-free_slots = total_slots - occupied_slots - locked_slots
+total_capacity = sum(b["capacity"] for b in st.session_state.blocks)
+total_occupied = sum(b["occupied"] for b in st.session_state.blocks)
+total_free = total_capacity - total_occupied
+locked_blocks_count = sum(1 for b in st.session_state.blocks if b["is_locked"])
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Tổng quy mô", f"{total_slots} ô")
-col2.metric("Ô còn trống", f"{free_slots} ô")
-col3.metric("Xe đã đỗ", f"{occupied_slots} xe")
-col4.metric("Ô tạm khóa", f"{locked_slots} ô")
+col1.metric("Tổng quy mô bãi", f"{total_capacity} xe")
+col2.metric("Số chỗ còn trống", f"{total_free} chỗ")
+col3.metric("Số xe đã đỗ", f"{total_occupied} xe")
+col4.metric("Số Block tạm khóa", f"{locked_blocks_count} / 4")
 
 st.divider()
 
 # ==========================================
-# 6. GIAO DIỆN SƠ ĐỒ SÀN BẢNG BLOCK & CHỈ DẪN HỆ THỐNG
+# 6. GIAO DIỆN SƠ ĐỒ MẶT BẰNG DẠNG KHỐI BLOCK
 # ==========================================
 col_map, col_info = st.columns([3.2, 1])
 
-def render_agv_block_grid(floor_name):
-    slots = [s for s in st.session_state.parking_slots if s["floor"] == floor_name]
-    last_res = st.session_state.last_assigned_slot
-    last_slot_info = last_res["slot"] if isinstance(last_res, dict) else None
+def render_block_cards():
+    blocks = st.session_state.blocks
+    last_res = st.session_state.last_assigned_res
+    last_b_id = last_res["assigned_block"]["id"] if isinstance(last_res, dict) else None
 
-    top_rows = [6, 5, 4]
-    bottom_rows = [3, 2, 1]
+    def get_card_html(b):
+        is_assigned = (last_b_id == b["id"])
+        
+        # Màu sắc & trạng thái
+        if b["is_locked"]:
+            status_tag = '<span style="background-color: #cbd5e0; color: #2d3748; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🔒 ĐÃ KHÓA</span>'
+            border = "2px solid #a0aec0"
+            bg = "#f7fafc"
+        elif is_assigned:
+            status_tag = '<span style="background-color: #38a169; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🎯 AGV VỪA GÁN</span>'
+            border = "3px solid #38a169"
+            bg = "#f0fff4"
+        elif b["occupied"] >= b["capacity"]:
+            status_tag = '<span style="background-color: #e53e3e; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🔴 ĐÃ ĐẦY</span>'
+            border = "2px solid #e53e3e"
+            bg = "#fff5f5"
+        else:
+            status_tag = '<span style="background-color: #3182ce; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🟢 CÒN CHỖ</span>'
+            border = f"2px solid {b['border_color']}"
+            bg = b["color"]
 
-    def build_grid_html(row_list):
-        grid_html = '<div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-bottom: 8px;">'
-        for y in row_list:
-            for x in range(1, 11):
-                slot = next((s for s in slots if s["x"] == x and s["y"] == y), None)
-                if not slot:
-                    continue
-                
-                is_last = (last_slot_info and last_slot_info["id"] == slot["id"] and last_slot_info["floor"] == floor_name)
-                
-                if is_last:
-                    bg_color = "#c6f6d5"
-                    border_color = "#38a169"
-                    text_color = "#22543d"
-                    status_text = "AGV 🎯"
-                elif slot["status"] == "ĐÃ KHÓA":
-                    bg_color = "#e2e8f0"
-                    border_color = "#a0aec0"
-                    text_color = "#4a5568"
-                    status_text = "🔒 KHÓA"
-                elif slot["status"] == "ĐÃ ĐỖ":
-                    bg_color = "#fed7d7"
-                    border_color = "#e53e3e"
-                    text_color = "#9b2c2c"
-                    status_text = "ĐÃ ĐỖ"
-                elif slot["is_priority_slot"]:
-                    bg_color = "#fefcbf"
-                    border_color = "#d69e2e"
-                    text_color = "#744210"
-                    status_text = "⭐ UT"
-                else:
-                    bg_color = "#ffffff"
-                    border_color = "#cbd5e0"
-                    text_color = "#2d3748"
-                    status_text = slot["block"].replace("Block ", "B-")
+        pct = int((b["occupied"] / b["capacity"]) * 100)
 
-                grid_html += f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 6px; padding: 5px 1px; text-align: center; font-family: sans-serif;"><div style="font-size: 11px; font-weight: 800; color: {text_color};">{slot["id"]}</div><div style="font-size: 8px; font-weight: 700; color: {text_color}; margin-top: 2px;">{status_text}</div></div>'
-        grid_html += '</div>'
-        return grid_html
-
-    map_html = f'''<div style="background-color: #ffffff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0;">
-{build_grid_html(top_rows)}
-<div style="display: flex; align-items: center; justify-content: space-between; background-color: #edf2f7; border: 2px dashed #cbd5e0; border-radius: 8px; padding: 8px 14px; margin: 12px 0; font-family: sans-serif;">
-<span style="background-color: #fefcbf; color: #744210; border: 1px solid #d69e2e; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🤖 TRẠM AGV HUB / CỔNG VÀO</span>
-<span style="font-size: 11px; font-weight: bold; color: #4a5568; letter-spacing: 1px;">🚗 LÀN ĐƯỜNG DI CHUYỂN AGV (MAIN DRIVEWAY) ──────────────────►</span>
-<span style="background-color: #c6f6d5; color: #22543d; border: 1px solid #38a169; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 LỐI RA</span>
+        card_html = f'''<div style="background-color: {bg}; border: {border}; border-radius: 10px; padding: 16px; margin-bottom: 12px; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <span style="font-size: 16px; font-weight: 800; color: #2d3748;">{b["name"]}</span>
+    {status_tag}
 </div>
-{build_grid_html(bottom_rows)}
+<div style="font-size: 13px; color: #4a5568; margin-bottom: 8px;"><b>Sức chứa:</b> {b["occupied"]} / {b["capacity"]} xe ({pct}%)</div>
+<div style="background-color: #e2e8f0; border-radius: 6px; height: 10px; width: 100%; overflow: hidden; margin-bottom: 8px;">
+    <div style="background-color: {"#e53e3e" if pct==100 else "#3182ce"}; width: {pct}%; height: 100%;"></div>
+</div>
+<div style="font-size: 11px; color: #718096;"><i>{b["desc"]}</i></div>
+</div>'''
+        return card_html
+
+    b_a = next(b for b in blocks if b["id"] == "Block A")
+    b_b = next(b for b in blocks if b["id"] == "Block B")
+    b_c = next(b for b in blocks if b["id"] == "Block C")
+    b_d = next(b for b in blocks if b["id"] == "Block D")
+
+    grid_html = f'''<div style="background-color: #ffffff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0;">
+<!-- KHỐI PHÍA TRÊN -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+    {get_card_html(b_a)}
+    {get_card_html(b_b)}
+</div>
+
+<!-- LÀN ĐƯỜNG AGV -->
+<div style="display: flex; align-items: center; justify-content: space-between; background-color: #edf2f7; border: 2px dashed #cbd5e0; border-radius: 8px; padding: 10px 16px; margin: 12px 0; font-family: sans-serif;">
+    <span style="background-color: #fefcbf; color: #744210; border: 1px solid #d69e2e; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🤖 TRẠM AGV HUB / CỔNG VÀO</span>
+    <span style="font-size: 12px; font-weight: bold; color: #4a5568; letter-spacing: 1px;">🚗 LÀN ĐƯỜNG VẬN CHUYỂN CỦA ROBOT AGV ──────────────────►</span>
+    <span style="background-color: #c6f6d5; color: #22543d; border: 1px solid #38a169; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 LỐI RA</span>
+</div>
+
+<!-- KHỐI PHÍA DƯỚI -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+    {get_card_html(b_c)}
+    {get_card_html(b_d)}
+</div>
 </div>'''
 
-    st.markdown(map_html, unsafe_allow_html=True)
+    st.markdown(grid_html, unsafe_allow_html=True)
 
-# --- CỘT TRÁI: SƠ ĐỒ BÃI ĐỖ XE ---
+# --- CỘT TRÁI: SƠ ĐỒ KHỐI BLOCK ---
 with col_map:
-    st.subheader("🗺️ Sơ đồ Phân bổ Block bãi đỗ xe")
-    
-    tab1, tab2, tab3 = st.tabs([
-        "Tầng 1 (Cổng AGV & Ngắn hạn)", 
-        "Tầng B1 (Trung hạn)", 
-        "Tầng B2 (Dài hạn)"
-    ])
-    
-    with tab1:
-        render_agv_block_grid("Tầng 1")
-    with tab2:
-        render_agv_block_grid("Tầng B1")
-    with tab3:
-        render_agv_block_grid("Tầng B2")
+    st.subheader("🗺️ Sơ đồ Mặt bằng các Khối đỗ xe (Block Model)")
+    render_block_cards()
 
-# --- CỘT PHẢI: CHỈ DẪN HỆ THỐNG AGV & THÔNG TIN ---
+# --- CỘT PHẢI: CHỈ DẪN ROBOT AGV & THÔNG TIN ---
 with col_info:
     st.subheader("📌 Chỉ dẫn Robot AGV")
     
-    last_res = st.session_state.last_assigned_slot
+    last_res = st.session_state.last_assigned_res
     
     if last_res == "FULL":
-        st.error("⛔ **THÔNG BÁO AGV:**\n\nHiện tại tất cả các ô trong các Block đều đã **KÍN CHỖ HOẶC BỊ KHÓA**.")
+        st.error("⛔ **THÔNG BÁO AGV:**\n\nTất cả các Block đều đã **KÍN CHỖ HOẶC BỊ KHÓA**.")
     elif isinstance(last_res, dict):
-        s_info = last_res["slot"]
+        assigned_b = last_res["assigned_block"]
         st.success(f"""
-        🎯 **GÁN VỊ TRÍ AGV:** **{s_info['id']}**  
-        * **Phân cụm:** `{s_info['block']}`  
-        * **Vị trí tầng:** `{s_info['floor']}`  
+        🎯 **GÁN VẬN CHUYỂN ĐẾN:**
+        ### **{assigned_b['id']}**
+        * **Sức chứa hiện tại:** `{assigned_b['occupied']} / {assigned_b['capacity']} xe`
         * **Tiêu thụ pin AGV dự kiến:** `{last_res['agv_energy']} kWh`
         """)
     else:
-        st.info("🎯 **Chưa có lệnh di chuyển cho AGV.**\n\nNhấn nút 'ROBOT AGV VẬN HÀNH ĐỖ XE' để kích hoạt.")
+        st.info("🎯 **Chưa có lệnh vận chuyển.**\n\nNhấn nút 'ROBOT AGV VẬN HÀNH ĐỖ XE' ở thanh bên để gán khối đỗ.")
 
     st.markdown("---")
     st.subheader("ℹ️ Thông tin Khai báo Xe")
@@ -312,12 +305,12 @@ with col_info:
     * **Khối lượng xe:** `{weight} kg`
     * **Thời gian đỗ:** `{duration} giờ`
     * **Đối tượng:** {"⚡ Ưu tiên" if is_priority else "🚗 Thông thường"}
-    * **Chỉ số Tối ưu (Urgency):** `{round((weight/1000.0)*2.5 + (24.0/(duration+0.5))*3.5, 1)} điểm`
+    * **Điểm Tối ưu (Urgency):** `{round((weight/1000.0)*2.5 + (24.0/(duration+0.5))*3.5, 1)} điểm`
     """)
     
     st.markdown("---")
-    st.caption("**Ghi chú phân vùng Block:**")
-    st.caption("🟦 **Block A (B-A)**: Gần Cổng AGV nhất (Tối ưu xe nặng/ngắn hạn)")
-    st.caption("🟩 **Block B (B-B)**: Vùng trung bình gần")
-    st.caption("🟧 **Block C (B-C)**: Vùng trung bình xa")
-    st.caption("🟪 **Block D (B-D)**: Vùng sâu nhất (Tối ưu xe đỗ lâu dài)")
+    st.caption("**Quy tắc phân vùng Block:**")
+    st.caption("🟦 **Block A**: Sát Cổng AGV (D=1)")
+    st.caption("🟩 **Block B**: Phía trên đường chính (D=2)")
+    st.caption("🟧 **Block C**: Phía dưới đường chính (D=3)")
+    st.caption("🟪 **Block D**: Góc sâu nhất (D=4)")
