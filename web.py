@@ -186,8 +186,77 @@ with col_main:
             showlegend=False
         ))
 
-    # 5. MŨI TÊN CHỈ DẪN AGV ĐẾN BLOCK ĐƯỢC CHỌN (Đường Xanh Lá)
+# 5. MŨI TÊN CHỈ DẪN AGV ĐẾN BLOCK ĐƯỢC CHỌN (Đường Xanh Lá)
     if best_block is not None:
         target_x, target_y = best_block["cx"], best_block["cy"]
         
-        # Tuyến đường gấp khúc từ Cổng (50, 0)
+        # Tuyến đường gấp khúc từ Cổng (50, 0) -> Giao điểm ngang -> Tâm Block
+        path_x = [50, 50, target_x]
+        path_y = [0, target_y, target_y]
+
+        fig.add_trace(go.Scatter(
+            x=path_x, y=path_y,
+            mode="lines",
+            line=dict(color="#10B981", width=5),
+            showlegend=False
+        ))
+
+        # Thêm Mũi tên chỉ hướng ở góc rẽ & điểm đích
+        fig.add_annotation(
+            x=target_x, y=target_y,
+            ax=50 if target_x == 50 else (target_x - 5 if target_x > 50 else target_x + 5),
+            ay=target_y - 5 if target_x == 50 else target_y,
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True,
+            arrowhead=3,
+            arrowsize=1.5,
+            arrowwidth=4,
+            arrowcolor="#10B981"
+        )
+
+    fig.update_layout(
+        xaxis=dict(range=[-2, 102], showgrid=False, zeroline=False, visible=False),
+        yaxis=dict(range=[-6, 98], showgrid=False, zeroline=False, visible=False),
+        height=520,
+        margin=dict(l=5, r=5, t=5, b=5),
+        plot_bgcolor="#FFFFFF"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Chú thích màu chuẩn như ảnh tham khảo
+    st.markdown("""
+    **Chú thích màu:** 
+    🟩 **Block chọn đỗ** &nbsp;|&nbsp; 
+    🟨 **Block còn trống** &nbsp;|&nbsp; 
+    🟥 **Block đã đầy** &nbsp;|&nbsp; 
+    🟩 **Đường chỉ dẫn AGV**
+    """)
+
+with col_info:
+    st.markdown("### 📌 Chỉ dẫn Hệ thống")
+    
+    if best_block is not None:
+        st.markdown(
+            f"""
+            <div class="guide-card">
+                🎯 BLOCK CHỌN GẮN: {best_block['id']}
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+    else:
+        st.error("⚠️ HỆ THỐNG ĐÃ ĐẦY Ô ĐỖ")
+
+    st.markdown("---")
+    st.markdown("### ℹ️ Thông tin Khai báo Xe")
+    
+    st.markdown(f"""
+    <div class="info-card">
+        <p>• <b>Khối lượng xe:</b> {car_weight} kg 🚘</p>
+        <p>• <b>Thời gian đỗ:</b> {park_duration} giờ ⏱️</p>
+        <p>• <b>Vị trí khu vực:</b> {best_block['desc'] if best_block is not None else 'N/A'}</p>
+        <p>• <b>Quãng đường AGV:</b> {int(best_block['distance']) if best_block is not None else 'N/A'} m</p>
+        <p>• <b>Số ô trống còn lại:</b> {best_block['available'] if best_block is not None else '0'} ô</p>
+    </div>
+    """, unsafe_allow_html=True)
