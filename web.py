@@ -107,4 +107,4 @@ w_b = st.sidebar.slider("Ưu tiên Cân bằng tải:", 0.0, 1.0, 0.20, 0.05)
 # ---------------------------------------------------------
 # 4. HÀM TÍNH TOÁN CHỌN BLOCK
 # ---------------------------------------------------------
-def evaluate_blocks(df,
+def evaluate_blocks(df,weight,duration,we,wr,wb):
