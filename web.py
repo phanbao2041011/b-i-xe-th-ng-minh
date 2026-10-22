@@ -156,7 +156,7 @@ st.markdown("---")
 
 
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK CHUẨN THEO BẢN VẼ
+# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK NGUYÊN KHỐI TỐI GIẢN
 # ==========================================
 col_map, col_info = st.columns([3.5, 1])
 
@@ -171,54 +171,38 @@ def render_block_card_html(b, mode="vertical"):
     pct = int((b["occupied"] / b["capacity"]) * 100)
 
     if b["is_locked"]:
-        status_tag = '<span style="background-color: #475569; color: #ffffff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap;">🔒 KHÓA</span>'
+        status_tag = '<span style="background-color: #475569; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap;">🔒 KHÓA</span>'
         bg_gradient = "linear-gradient(145deg, #e2e8f0, #cbd5e1)"
         border_style = "2px solid #64748b"
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.08);"
         text_color = "#1e293b"
     elif is_assigned:
-        status_tag = '<span style="background-color: #15803d; color: #ffffff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">🎯 AGV CHỌN</span>'
+        status_tag = '<span style="background-color: #15803d; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">🎯 AGV CHỌN</span>'
         bg_gradient = "linear-gradient(145deg, #dcfce7, #bbf7d0)"
         border_style = "2.5px solid #16a34a"
         shadow_style = "box-shadow: 0 0 12px rgba(34, 197, 94, 0.35);"
         text_color = "#064e3b"
     elif b["occupied"] >= b["capacity"]:
-        status_tag = '<span style="background-color: #b91c1c; color: #ffffff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap;">🔴 ĐÃ ĐẦY</span>'
+        status_tag = '<span style="background-color: #b91c1c; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap;">🔴 ĐÃ ĐẦY</span>'
         bg_gradient = "linear-gradient(145deg, #ffe4e6, #fecdd3)"
         border_style = "2px solid #ef4444"
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.08);"
         text_color = "#881337"
     else:
-        status_tag = '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap;">🟢 TRỐNG</span>'
+        status_tag = '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap;">🟢 TRỐNG</span>'
         bg_gradient = "linear-gradient(145deg, #ffffff, #f8fafc)"
         border_style = "2px solid #cbd5e1"
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04);"
         text_color = "#0f172a"
 
-    # VẼ 4 Ô NHỎ BÊN TRONG CỦA BLOCK THEO BẢN VẼ
-    if mode == "horizontal":
-        # Khối ngang (Block 5, 6): 4 ô xếp hàng ngang
-        slots_html = ""
-        for i in range(4):
-            slot_filled = (pct >= (i + 1) * 25)
-            slot_bg = "linear-gradient(180deg, #3b82f6, #1d4ed8)" if slot_filled else "#f1f5f9"
-            slots_html += f'<div style="flex: 1; height: 100%; background: {slot_bg}; border-radius: 3px; border: 1px solid #cbd5e1;"></div>'
-        
-        return f'<div style="width: 100%; height: 75px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 6px 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="display: flex; justify-content: space-between; align-items: center; width: 100%;"><span style="font-size: 12px; font-weight: 800; color: {text_color};">🏢 {b["name"]}</span>{status_tag}<span style="font-size: 10px; font-weight: 700; color: {text_color};">{b["occupied"]}/{b["capacity"]} xe</span></div><div style="display: flex; gap: 4px; width: 100%; height: 22px; background: rgba(0,0,0,0.03); padding: 3px; border-radius: 5px; border: 1px solid #cbd5e1; box-sizing: border-box;">{slots_html}</div></div>'
-    else:
-        # Khối dọc (Block 1, 2, 3, 4, 7, 8, 9): 4 ô xếp chồng chiều dọc
-        slots_html = ""
-        for i in range(4):
-            slot_filled = (pct >= (i + 1) * 25)
-            slot_bg = "linear-gradient(90deg, #3b82f6, #1d4ed8)" if slot_filled else "#f1f5f9"
-            slots_html += f'<div style="flex: 1; width: 100%; background: {slot_bg}; border-radius: 3px; border: 1px solid #cbd5e1;"></div>'
-            
-        return f'<div style="width: 100%; height: 140px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 6px 4px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 11px; font-weight: 800; color: {text_color};">🏢 {b["name"]}</div><div>{status_tag}</div><div style="font-size: 10px; font-weight: 700; color: {text_color};">{b["occupied"]}/{b["capacity"]} xe</div><div style="display: flex; flex-direction: column; gap: 2px; width: 80%; height: 52px; background: rgba(0,0,0,0.03); padding: 3px; border-radius: 5px; border: 1px solid #cbd5e1; box-sizing: border-box;">{slots_html}</div></div>'
+    card_height = "80px" if mode == "horizontal" else "125px"
+
+    return f'<div style="width: 100%; height: {card_height}; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 8px 6px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 13px; font-weight: 800; color: {text_color}; margin-bottom: 4px;">🏢 {b["name"]}</div><div style="margin-bottom: 5px;">{status_tag}</div><div style="font-size: 11px; font-weight: 700; color: {text_color}; margin-bottom: 6px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 4px; height: 6px; width: 80%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 4px;"></div></div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
-    path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 140px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
+    path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 125px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
 
     grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 14px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box;">
 <div style="display: grid; grid-template-columns: 1fr 12px 3.2fr 12px 1fr; gap: 8px; align-items: stretch; margin-bottom: 12px;">
