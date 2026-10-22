@@ -1,161 +1,177 @@
 import streamlit as st
+import math
 
 # ==========================================
-# 1. CẤU HÌNH TRANG WEB
+# 1. CẤU HÌNH TRANG WEB STREAMLIT
 # ==========================================
 st.set_page_config(
-    page_title="Hệ thống AGV Smart Parking - Sơ đồ 8 Block",
+    page_title="Hệ thống Tối ưu Bãi đỗ xe Tự động AGV",
     page_icon="🤖",
     layout="wide"
 )
 
 # ==========================================
-# 2. KHỞI TẠO BỘ NHỚ 8 BLOCK THEO BẢN VẼ
+# 2. KHỞI TẠO VÀ ĐỒNG BỘ SESSION STATE (9 BLOCK)
 # ==========================================
-if "blocks" not in st.session_state:
+if "blocks" not in st.session_state or len(st.session_state.blocks) != 9:
     st.session_state.blocks = [
         {"id": f"Block {i}", "name": f"Block {i}", "capacity": 12, "occupied": 0, "is_locked": False}
         for i in range(1, 10)
     ]
 
-# Ép đồng bộ sức chứa 12 xe cho 9 Block
+# Ép đồng bộ sức chứa 12 xe cho tất cả 9 Block
 for b in st.session_state.blocks:
     b["capacity"] = 12
+
 if "last_assigned_res" not in st.session_state:
     st.session_state.last_assigned_res = None
 
+
 # ==========================================
-# 3. THANH BÊN (SIDEBAR) - KHAI BÁO THÔNG TIN
+# 3. THUẬT TOÁN TÍNH TOÁN & TỐI ƯU HÓA AGV
 # ==========================================
-st.sidebar.header("📋 Khai báo Xe vào Cổng")
+# Bảng khoảng cách cơ sở từ Cổng vào (ENTRY) đến tâm từng Block (đơn vị: bước lưới)
+BLOCK_DISTANCES = {
+    "Block 1": 4, "Block 2": 3, "Block 3": 2, "Block 4": 1,
+    "Block 5": 5, "Block 6": 7, "Block 7": 2, "Block 8": 8, "Block 9": 6
+}
 
-is_priority = st.sidebar.checkbox("⚡ Đối tượng Ưu tiên")
+def calculate_urgency(weight, duration, is_priority):
+    """Tính điểm cấp thiết / ưu tiên đỗ xe"""
+    score = (weight / 1000.0) * 2.5 + (24.0 / (duration + 0.5)) * 3.5
+    if is_priority:
+        score += 5.0
+    return round(score, 2)
 
-duration = st.sidebar.number_input(
-    "⏱️ Thời gian đỗ dự kiến (giờ):",
-    min_value=0.1,
-    max_value=168.0,
-    value=2.0,
-    step=0.5
-)
+def calculate_agv_energy(block_id, weight):
+    """Tính toán mức tiêu thụ năng lượng của Robot AGV (kWh)"""
+    dist = BLOCK_DISTANCES.get(block_id, 5)
+    e_base = 0.03   # Năng lượng cơ sở khi AGV di chuyển không tải
+    k_load = 0.000025  # Hệ số phụ thuộc tải trọng xe
+    energy = dist * (e_base + k_load * weight)
+    return round(energy, 2)
 
-weight = st.sidebar.number_input(
-    "⚖️ Khối lượng xe (kg):",
-    min_value=500,
-    max_value=5000,
-    value=1500,
-    step=100,
-    help="Robot AGV sẽ tính toán năng lượng tiêu thụ dựa trên khối lượng xe."
-)
+def find_optimal_block(weight, duration, is_priority):
+    """Thuật toán sàng lọc và lựa chọn Block tối ưu"""
+    urgency = calculate_urgency(weight, duration, is_priority)
+    
+    # 1. Lọc các Block hợp lệ (chưa khóa và còn chỗ trống)
+    valid_blocks = [b for b in st.session_state.blocks if not b["is_locked"] and b["occupied"] < b["capacity"]]
+    
+    if not valid_blocks:
+        return "FULL"
 
-# --- CHẾ ĐỘ QUẢN TRỊ VIÊN (ADMIN MODE) ---
+    best_block = None
+    min_cost = float('inf')
+
+    # Trọng số tối ưu hóa (w1: Năng lượng AGV, w2: Phù hợp phân vùng)
+    w1, w2 = 0.6, 0.4
+
+    for b in valid_blocks:
+        b_id = b["id"]
+        energy = calculate_agv_energy(b_id, weight)
+        
+        # Điểm lý tưởng chiến lược từng vùng
+        ideal_score = 15.0
+        if b_id in ["Block 4", "Block 7"]:
+            ideal_score = 25.0  # Ưu tiên xe nặng/cấp thiết gần cổng vào
+        elif b_id in ["Block 1", "Block 9"]:
+            ideal_score = 20.0  # Gần cổng ra
+        elif b_id in ["Block 5", "Block 6"]:
+            ideal_score = 8.0   # Đỗ dài hạn vùng sâu
+
+        # Hàm chi phí tổng hợp
+        occupancy_ratio = b["occupied"] / b["capacity"]
+        penalty = occupancy_ratio * 3.0  # Phạt nhẹ nếu block đã gần đầy để cân bằng tải
+        
+        cost = w1 * energy * 10 + w2 * abs(urgency - ideal_score) + penalty
+
+        if cost < min_cost:
+            min_cost = cost
+            best_block = b
+
+    energy_used = calculate_agv_energy(best_block["id"], weight)
+    return {
+        "assigned_block": best_block,
+        "agv_energy": energy_used,
+        "urgency_score": urgency
+    }
+
+
+# ==========================================
+# 4. THANH BÊN (SIDEBAR) - KHAI BÁO & QUẢN TRỊ
+# ==========================================
+st.sidebar.title("🎮 Điều hành & Khai báo")
+
+st.sidebar.subheader("📋 Khai báo Xe vào Cổng")
+is_priority = st.sidebar.checkbox("⚡ Đối tượng Ưu tiên", value=False)
+duration = st.sidebar.number_input("⏱️ Thời gian đỗ dự kiến (giờ):", min_value=0.5, max_value=72.0, value=2.0, step=0.5)
+weight = st.sidebar.number_input("⚖️ Khối lượng xe (kg):", min_value=500, max_value=3500, value=1500, step=50)
+
 st.sidebar.markdown("---")
-admin_mode = st.sidebar.checkbox("🛡️ Chế độ Quản trị viên (Admin)")
+
+# Nut vận hành AGV
+if st.sidebar.button("🚗 ROBOT AGV VẬN HÀNH ĐỖ XE", type="primary", use_container_width=True):
+    res = find_optimal_block(weight, duration, is_priority)
+    st.session_state.last_assigned_res = res
+    if res != "FULL" and isinstance(res, dict):
+        # Tăng số lượng xe trong Block được chọn
+        target_id = res["assigned_block"]["id"]
+        for b in st.session_state.blocks:
+            if b["id"] == target_id:
+                b["occupied"] += 1
+                break
+        st.sidebar.success(f"✅ Robot AGV đã vận chuyển xe vào **{target_id}**!")
+    else:
+        st.sidebar.error("❌ Tất cả các Block đều đã KÍN CHỖ hoặc BỊ KHÓA!")
+
+st.sidebar.markdown("---")
+
+# Chế độ Admin
+st.sidebar.subheader("⚙️ Chế độ Quản trị viên (Admin)")
+admin_mode = st.sidebar.checkbox("🔓 Bật Chế độ Quản trị", value=True)
 
 if admin_mode:
-    st.sidebar.subheader("⚙️ Quản lý Khóa / Mở Block")
-    
-    block_options = [f"Block {i}" for i in range(1, 9)]
-    selected_block_ids = st.sidebar.multiselect(
-        "Chọn Block cần thao tác:",
-        options=block_options,
-        placeholder="Chọn một hoặc nhiều Block..."
+    st.sidebar.caption("🔒 **Quản lý Khóa / Mở Block:**")
+    selected_to_lock = st.sidebar.multiselect(
+        "Chọn Block muốn Khóa:",
+        options=[b["id"] for b in st.session_state.blocks],
+        default=[b["id"] for b in st.session_state.blocks if b["is_locked"]]
     )
     
-    col_lock, col_unlock = st.sidebar.columns(2)
-    
-    if col_lock.button("🔒 Khóa Block", use_container_width=True):
-        if selected_block_ids:
-            for b in st.session_state.blocks:
-                if b["id"] in selected_block_ids:
-                    b["is_locked"] = True
-            st.sidebar.success(f"Đã KHÓA các block: {', '.join(selected_block_ids)}")
-            st.rerun()
-            
-    if col_unlock.button("🔓 Mở Block", use_container_width=True):
-        if selected_block_ids:
-            for b in st.session_state.blocks:
-                if b["id"] in selected_block_ids:
-                    b["is_locked"] = False
-            st.sidebar.success(f"Đã MỞ KHÓA các block: {', '.join(selected_block_ids)}")
-            st.rerun()
+    # Cập nhật trạng thái khóa
+    for b in st.session_state.blocks:
+        b["is_locked"] = (b["id"] in selected_to_lock)
 
-    if st.sidebar.button("🔄 Reset toàn bộ bãi đỗ", use_container_width=True):
+    if st.sidebar.button("🔄 Đặt lại Trạng thái Bãi đỗ (Reset)", use_container_width=True):
         for b in st.session_state.blocks:
             b["occupied"] = 0
             b["is_locked"] = False
         st.session_state.last_assigned_res = None
-        st.sidebar.info("Đã khôi phục tất cả các Block về trạng thái trống!")
-        st.rerun()
+        st.sidebar.success("Đã xóa dữ liệu, bãi đỗ trở về trạng thái trống!")
 
-st.sidebar.markdown("---")
 
 # ==========================================
-# 4. THUẬT TOÁN AGV LỰA CHỌN BLOCK TỐI ƯU
+# 5. HEADER VÀ BANNER CHỈ SỐ KPI
 # ==========================================
-def assign_agv_block(weight, duration, is_priority):
-    blocks = st.session_state.blocks
-    
-    # 1. Tính toán Chỉ số Tối ưu (Urgency Score)
-    urgency_score = (weight / 1000.0) * 2.5 + (24.0 / (duration + 0.5)) * 3.5
-    
-    # 2. Xếp thứ tự ưu tiên các Block dựa trên tham số đầu vào
-    if is_priority or urgency_score >= 12.0:
-        # Xe rất nặng hoặc siêu ngắn hạn -> Ưu tiên Block 4, 7 (gần Cổng vào) hoặc Block 1 (gần Cổng ra)
-        preferred_order = ["Block 4", "Block 7", "Block 1", "Block 3", "Block 2", "Block 5", "Block 8", "Block 6"]
-    elif urgency_score >= 7.0:
-        preferred_order = ["Block 3", "Block 2", "Block 1", "Block 5", "Block 7", "Block 4", "Block 8", "Block 6"]
-    else:
-        # Đỗ lâu dài / Xe nhẹ -> Ưu tiên các khối nằm sâu như Block 6, 5, 8
-        preferred_order = ["Block 6", "Block 5", "Block 8", "Block 2", "Block 3", "Block 7", "Block 1", "Block 4"]
+st.title("🅿️ Smart Parking Optimization System (AGV Model)")
 
-    # DUYỆT TÌM BLOCK CÒN CHỖ VÀ KHÔNG BỊ KHÓA
-    for b_id in preferred_order:
-        blk = next((b for b in blocks if b["id"] == b_id), None)
-        if blk and (not blk["is_locked"]) and (blk["occupied"] < blk["capacity"]):
-            blk["occupied"] += 1
-            agv_energy = round(weight * blk["priority_rank"] * 0.00015, 2)
-            
-            return {
-                "assigned_block": blk,
-                "urgency_score": round(urgency_score, 1),
-                "agv_energy": agv_energy
-            }
+total_cap = sum(b["capacity"] for b in st.session_state.blocks)
+total_occ = sum(b["occupied"] for b in st.session_state.blocks)
+total_avail = total_cap - total_occ
+avail_blocks = sum(1 for b in st.session_state.blocks if not b["is_locked"] and b["occupied"] < b["capacity"])
 
-    return None
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+kpi1.metric("Tổng Sức chứa Bãi", f"{total_cap} xe")
+kpi2.metric("Số xe Đang đỗ", f"{total_occ} xe")
+kpi3.metric("Chỗ còn Trống", f"{total_avail} chỗ")
+kpi4.metric("Số Block Khả dụng", f"{avail_blocks} / 9 Block")
 
-# NÚT KÍCH HOẠT VẬN HÀNH AGV
-if st.sidebar.button("🤖 ROBOT AGV VẬN HÀNH ĐỖ XE", use_container_width=True):
-    res = assign_agv_block(weight, duration, is_priority)
-    if res:
-        st.session_state.last_assigned_res = res
-        assigned_b = res["assigned_block"]
-        st.sidebar.success(f"✅ AGV đã chọn: **{assigned_b['id']}** ({assigned_b['occupied']}/{assigned_b['capacity']} xe)")
-    else:
-        st.session_state.last_assigned_res = "FULL"
-        st.sidebar.error("⛔ **ROBOT AGV BÁO: TẤT CẢ CÁC BLOCK ĐẦY HOẶC BỊ KHÓA!**")
+st.markdown("---")
+
 
 # ==========================================
-# 5. HIỂN THỊ TIÊU ĐỀ & THỐNG KÊ TỔNG QUAN
-# ==========================================
-st.title("🤖 Hệ thống Tối ưu Bãi đỗ xe Tự động (Mô hình 8 Block AGV)")
-
-total_capacity = sum(b["capacity"] for b in st.session_state.blocks)
-total_occupied = sum(b["occupied"] for b in st.session_state.blocks)
-total_free = total_capacity - total_occupied
-locked_blocks_count = sum(1 for b in st.session_state.blocks if b["is_locked"])
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Tổng quy mô bãi", f"{total_capacity} xe")
-col2.metric("Số chỗ còn trống", f"{total_free} chỗ")
-col3.metric("Số xe đã đỗ", f"{total_occupied} xe")
-col4.metric("Số Block tạm khóa", f"{locked_blocks_count} / 8")
-
-st.divider()
-
-# ==========================================
-
-# 6. MÔ PHỎNG SƠ ĐỒ BÃI ĐỖ XE 9 BLOCK THEO ĐÚNG PHÁC THẢO
+# 6. MÔ PHỎNG SƠ ĐỒ BÃI ĐỖ XE 9 BLOCK
 # ==========================================
 col_map, col_info = st.columns([3.5, 1])
 
@@ -311,31 +327,10 @@ with col_info:
     * **Đối tượng:** {"⚡ Ưu tiên" if is_priority else "🚗 Thông thường"}
     * **Điểm Tối ưu (Urgency):** `{round((weight/1000.0)*2.5 + (24.0/(duration+0.5))*3.5, 1)} điểm`
     """)
-    
+
     st.markdown("---")
-    st.caption("**Chú thích sơ đồ hệ thống:**")
+    st.caption("**Quy tắc sơ đồ 9 Block:**")
     st.caption("🟢 **TRỐNG**: Khối đỗ còn chỗ")
     st.caption("🔴 **ĐÃ ĐẦY**: Khối đỗ đã kín xe")
     st.caption("🔒 **KHÓA**: Khối đỗ tạm khóa")
-    st.caption("🎯 **AGV CHỌN**: Khối đỗ vừa được gán")
-    st.caption("📸 **VÙNG ĐỆM**: Trạm nhận diện Camera AI & Xoay Robot")
-
-def calculate_dynamic_weights(agv_battery_pct, total_occupancy_pct):
-    """
-    Tự động tính toán w1 (trọng số Năng lượng) và w2 (trọng số Vị trí tối ưu)
-    dựa trên Pin Robot và Tỷ lệ lấp đầy bãi đỗ.
-    """
-    # 1. Nếu pin yếu (< 20%), ưu tiên tuyệt đối cho tiết kiệm năng lượng
-    if agv_battery_pct < 20:
-        w1 = 0.85
-        w2 = 0.15
-    # 2. Nếu giờ cao điểm (bãi đỗ > 80%), ưu tiên xếp đúng phân vùng tối ưu
-    elif total_occupancy_pct > 80:
-        w1 = 0.25
-        w2 = 0.75
-    # 3. Trạng thái bình thường: Cân bằng 50/50 hoặc 60/40
-    else:
-        w1 = 0.55
-        w2 = 0.45
-        
-    return w1, w2
+    st.caption("🎯 **AGV CHỌN**: Vừa được Robot chọn")
