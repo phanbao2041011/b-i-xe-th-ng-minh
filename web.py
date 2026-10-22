@@ -157,7 +157,7 @@ col4.metric("Số Block tạm khóa", f"{locked_blocks_count} / 8")
 st.divider()
 
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK ĐỒNG NHẤT VỚI ĐƯỜNG ĐI AGV PHÂN CÁCH
+# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK TỐI ƯU TỶ LỆ & GIAO DIỆN HIỆN ĐẠI
 # ==========================================
 col_map, col_info = st.columns([3.3, 1])
 
@@ -171,90 +171,90 @@ def render_block_card_html(b, is_vertical=False):
     is_assigned = (last_b_id == b["id"])
     pct = int((b["occupied"] / b["capacity"]) * 100)
 
-    # ĐỊNH DẠNG TẠO HIỆU ỨNG KHỐI TÒA NHÀ 3D (BUILDING BLOCK STYLING)
+    # ĐỊNH DẠNG TẠO HIỆU ỨNG KHỐI TÒA NHÀ 3D CÂN ĐỐI
     if b["is_locked"]:
         status_tag = '<span style="background-color: #475569; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔒 KHÓA</span>'
-        bg_gradient = "linear-gradient(145deg, #cbd5e1, #94a3b8)"
+        bg_gradient = "linear-gradient(145deg, #e2e8f0, #cbd5e1)"
         border_style = "2px solid #64748b"
-        shadow_style = "box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.5), 0 4px 0 #475569;"
+        shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);"
         text_color = "#1e293b"
     elif is_assigned:
-        status_tag = '<span style="background-color: #15803d; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🎯 AGV CHỌN</span>'
-        bg_gradient = "linear-gradient(145deg, #dcfce7, #86efac)"
+        status_tag = '<span style="background-color: #15803d; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">🎯 AGV CHỌN</span>'
+        bg_gradient = "linear-gradient(145deg, #dcfce7, #bbf7d0)"
         border_style = "2.5px solid #16a34a"
-        shadow_style = "box-shadow: 0 0 12px rgba(34, 197, 94, 0.4), inset 0 2px 0 rgba(255,255,255,0.7), 0 5px 0 #15803d;"
+        shadow_style = "box-shadow: 0 0 15px rgba(34, 197, 94, 0.35), inset 0 1px 0 rgba(255,255,255,0.8);"
         text_color = "#064e3b"
     elif b["occupied"] >= b["capacity"]:
         status_tag = '<span style="background-color: #b91c1c; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔴 ĐÃ ĐẦY</span>'
-        bg_gradient = "linear-gradient(145deg, #ffe4e6, #fca5a5)"
+        bg_gradient = "linear-gradient(145deg, #ffe4e6, #fecdd3)"
         border_style = "2px solid #ef4444"
-        shadow_style = "box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.5), 0 4px 0 #991b1b;"
+        shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);"
         text_color = "#881337"
     else:
         status_tag = '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🟢 TRỐNG</span>'
-        bg_gradient = "linear-gradient(145deg, #ffffff, #f1f5f9)"
+        bg_gradient = "linear-gradient(145deg, #ffffff, #f8fafc)"
         border_style = "2px solid #cbd5e1"
-        shadow_style = "box-shadow: 0 4px 6px rgba(0,0,0,0.06), inset 0 2px 0 rgba(255,255,255,0.9), 0 4px 0 #94a3b8;"
+        shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9);"
         text_color = "#0f172a"
 
-    height_style = "height: 100%; min-height: 440px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else "height: 100%; min-height: 110px; display: flex; flex-direction: column; justify-content: center;"
+    height_style = "height: 100%; min-height: 480px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else "padding: 10px 6px;"
 
-    return f'<div style="{height_style} background: {bg_gradient}; border: {border_style}; border-radius: 10px; padding: 12px 6px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 14px; font-weight: 800; color: {text_color}; margin-bottom: 4px; letter-spacing: 0.5px;">🏢 {b["name"]}</div><div style="margin-bottom: 6px;">{status_tag}</div><div style="font-size: 12px; font-weight: 700; color: {text_color}; margin-bottom: 6px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 6px; height: 8px; width: 100%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 6px;"></div></div></div>'
+    return f'<div style="{height_style} background: {bg_gradient}; border: {border_style}; border-radius: 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 14px; font-weight: 800; color: {text_color}; margin-bottom: 3px;">🏢 {b["name"]}</div><div style="margin-bottom: 5px;">{status_tag}</div><div style="font-size: 12px; font-weight: 700; color: {text_color}; margin-bottom: 5px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 6px; height: 8px; width: 85%; margin: 0 auto; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 6px;"></div></div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
-    path_v = '<div style="background-color: #e2e8f0; border: 1.5px dashed #94a3b8; border-radius: 6px; height: 100%; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 9px; font-weight: bold; color: #64748b; letter-spacing: 1px; padding: 2px;">↕ AGV</div>'
+    path_v_inner = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 100%; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; font-weight: 600; color: #94a3b8; letter-spacing: 1px;">↕ AGV</div>'
 
-    grid_layout_html = f'''<div style="background-color: #f8fafc; border-radius: 16px; padding: 20px; border: 2px solid #cbd5e1; box-shadow: inset 0 0 15px rgba(0,0,0,0.02);">
-<div style="display: grid; grid-template-columns: 125px 26px 1fr 26px 125px; gap: 8px; align-items: stretch;">
+    grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 18px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+<div style="display: grid; grid-template-columns: 110px 18px 1fr 18px 110px; gap: 6px; align-items: stretch;">
 
 <!-- CỘT 1: BLOCK 8 -->
 <div>{render_block_card_html(bd["Block 8"], is_vertical=True)}</div>
 
 <!-- CỘT 2: LỐI ĐI AGV DỌC TRÁI -->
-<div style="background-color: #e2e8f0; border: 1.5px dashed #94a3b8; border-radius: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 2px; padding: 4px;">
-↕ LỐI ĐI AGV DỌC TRÁI
+<div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 2px;">
+↕ LÀN AGV DỌC TRÁI
 </div>
 
 <!-- CỘT 3: KHU VỰC TRUNG TÂM -->
-<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
 <div>{render_block_card_html(bd["Block 6"])}</div>
 
 <!-- LÀN AGV NGANG 1 -->
-<div style="background-color: #edf2f7; border: 1.5px dashed #cbd5e0; border-radius: 6px; padding: 4px 10px; text-align: center; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 1px;">
+<div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 10px; text-align: center; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1.5px;">
 ↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 1)
 </div>
 
 <div>{render_block_card_html(bd["Block 5"])}</div>
 
 <!-- LÀN AGV NGANG 2 -->
-<div style="background-color: #edf2f7; border: 1.5px dashed #cbd5e0; border-radius: 6px; padding: 4px 10px; text-align: center; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 1px;">
+<div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 10px; text-align: center; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1.5px;">
 ↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 2)
 </div>
 
 <!-- HÀNG CÁC BLOCK 1, 2, 3, 4 CÙNG CHIỀU RỘNG VÀ CÓ LỐI ĐI AGV PHÂN CÁCH -->
-<div style="display: grid; grid-template-columns: 1fr 18px 1fr 18px 1fr 18px 1fr; gap: 4px; align-items: stretch;">
+<div style="display: grid; grid-template-columns: 1fr 12px 1fr 12px 1fr 12px 1fr; gap: 2px; align-items: stretch;">
 <div>{render_block_card_html(bd["Block 1"])}</div>
-{path_v}
+{path_v_inner}
 <div>{render_block_card_html(bd["Block 2"])}</div>
-{path_v}
+{path_v_inner}
 <div>{render_block_card_html(bd["Block 3"])}</div>
-{path_v}
+{path_v_inner}
 <div>{render_block_card_html(bd["Block 4"])}</div>
 </div>
 
 <!-- CỔNG RA VÀ CỔNG VÀO -->
-<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background-color: #edf2f7; border-radius: 8px; border: 2px dashed #cbd5e0; margin-top: 4px;">
-<span style="background-color: #fed7d7; color: #9b2c2c; border: 1.5px solid #e53e3e; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold;">🚪 CỔNG RA</span>
-<span style="font-size: 12px; font-weight: bold; color: #64748b; letter-spacing: 1.5px;">🚗 HƯỚNG RA / VÀO ROBOT AGV</span>
-<span style="background-color: #c6f6d5; color: #22543d; border: 1.5px solid #38a169; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold;">🚪 CỔNG VÀO</span>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background-color: #f8fafc; border-radius: 8px; border: 1.5px dashed #cbd5e1; margin-top: 2px;">
+<span style="background-color: #fee2e2; color: #991b1b; border: 1.5px solid #f87171; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 CỔNG RA</span>
+<span style="font-size: 11px; font-weight: 700; color: #64748b; letter-spacing: 1px;">🚗 HƯỚNG VẬN CHUYỂN ROBOT AGV</span>
+<span style="background-color: #dcfce7; color: #166534; border: 1.5px solid #4ade80; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 CỔNG VÀO</span>
 </div>
 </div>
 
 <!-- CỘT 4: LỐI ĐI AGV DỌC PHẢI -->
-<div style="background-color: #e2e8f0; border: 1.5px dashed #94a3b8; border-radius: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 2px; padding: 4px;">
-↕ LỐI ĐI AGV DỌC PHẢI
+<div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 2px;">
+↕ LÀN AGV DỌC PHẢI
 </div>
 
 <!-- CỘT 5: BLOCK 7 -->
