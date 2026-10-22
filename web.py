@@ -34,21 +34,22 @@ BLOCK_DISTANCES = {
     "Block 5": 5, "Block 6": 7, "Block 7": 2, "Block 8": 8, "Block 9": 6
 }
 
-def calculate_urgency(weight, duration, is_priority):
+def calculate_urgency(weight, duration):
+    """Tính điểm cấp thiết dựa trên Khối lượng và Thời gian đỗ"""
     score = (weight / 1000.0) * 2.5 + (24.0 / (duration + 0.5)) * 3.5
-    if is_priority:
-        score += 5.0
     return round(score, 2)
 
 def calculate_agv_energy(block_id, weight):
+    """Tính toán mức tiêu thụ năng lượng của Robot AGV (kWh)"""
     dist = BLOCK_DISTANCES.get(block_id, 5)
     e_base = 0.03
     k_load = 0.000025
     energy = dist * (e_base + k_load * weight)
     return round(energy, 2)
 
-def find_optimal_block(weight, duration, is_priority):
-    urgency = calculate_urgency(weight, duration, is_priority)
+def find_optimal_block(weight, duration):
+    """Thuật toán sàng lọc và lựa chọn Block tối ưu"""
+    urgency = calculate_urgency(weight, duration)
     valid_blocks = [b for b in st.session_state.blocks if not b["is_locked"] and b["occupied"] < b["capacity"]]
     
     if not valid_blocks:
@@ -93,14 +94,13 @@ def find_optimal_block(weight, duration, is_priority):
 st.sidebar.title("🎮 Điều hành & Khai báo")
 
 st.sidebar.subheader("📋 Khai báo Xe vào Cổng")
-is_priority = st.sidebar.checkbox("⚡ Đối tượng Ưu tiên", value=False)
 duration = st.sidebar.number_input("⏱️ Thời gian đỗ dự kiến (giờ):", min_value=0.5, max_value=72.0, value=2.0, step=0.5)
 weight = st.sidebar.number_input("⚖️ Khối lượng xe (kg):", min_value=500, max_value=3500, value=1500, step=50)
 
 st.sidebar.markdown("---")
 
 if st.sidebar.button("🚗 ROBOT AGV VẬN HÀNH ĐỖ XE", type="primary", use_container_width=True):
-    res = find_optimal_block(weight, duration, is_priority)
+    res = find_optimal_block(weight, duration)
     st.session_state.last_assigned_res = res
     if res != "FULL" and isinstance(res, dict):
         target_id = res["assigned_block"]["id"]
@@ -309,7 +309,6 @@ with col_info:
     st.markdown(f"""
     * **Khối lượng xe:** `{weight} kg`
     * **Thời gian đỗ:** `{duration} giờ`
-    * **Đối tượng:** {"⚡ Ưu tiên" if is_priority else "🚗 Thông thường"}
     * **Điểm Tối ưu (Urgency):** `{round((weight/1000.0)*2.5 + (24.0/(duration+0.5))*3.5, 1)} điểm`
     """)
 
