@@ -158,7 +158,7 @@ st.divider()
 
 # ==========================================
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK & VÙNG ĐỆM CAMERA AI / AGV (ĐÃ SỬA LỖI LỆNH HTML THÔ)
+# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK (ĐÃ THU GỌN CHIỀU RỘNG CÁC BLOCK)
 # ==========================================
 col_map, col_info = st.columns([3.3, 1])
 
@@ -173,55 +173,55 @@ def render_block_card_html(b, is_vertical=False):
     pct = int((b["occupied"] / b["capacity"]) * 100)
 
     if b["is_locked"]:
-        status_tag = '<span style="background-color: #475569; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔒 KHÓA</span>'
+        status_tag = '<span style="background-color: #475569; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔒 KHÓA</span>'
         bg_gradient = "linear-gradient(145deg, #e2e8f0, #cbd5e1)"
         border_style = "2px solid #64748b"
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);"
         text_color = "#1e293b"
     elif is_assigned:
-        status_tag = '<span style="background-color: #15803d; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">🎯 AGV CHỌN</span>'
+        status_tag = '<span style="background-color: #15803d; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">🎯 AGV CHỌN</span>'
         bg_gradient = "linear-gradient(145deg, #dcfce7, #bbf7d0)"
         border_style = "2.5px solid #16a34a"
         shadow_style = "box-shadow: 0 0 15px rgba(34, 197, 94, 0.35), inset 0 1px 0 rgba(255,255,255,0.8);"
         text_color = "#064e3b"
     elif b["occupied"] >= b["capacity"]:
-        status_tag = '<span style="background-color: #b91c1c; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔴 ĐÃ ĐẦY</span>'
+        status_tag = '<span style="background-color: #b91c1c; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔴 ĐÃ ĐẦY</span>'
         bg_gradient = "linear-gradient(145deg, #ffe4e6, #fecdd3)"
         border_style = "2px solid #ef4444"
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);"
         text_color = "#881337"
     else:
-        status_tag = '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🟢 TRỐNG</span>'
+        status_tag = '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold;">🟢 TRỐNG</span>'
         bg_gradient = "linear-gradient(145deg, #ffffff, #f8fafc)"
         border_style = "2px solid #cbd5e1"
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9);"
         text_color = "#0f172a"
 
-    height_style = "height: 100%; min-height: 400px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else "padding: 12px 6px;"
+    height_style = "height: 100%; min-height: 380px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else "padding: 10px 4px;"
 
-    return f'<div style="{height_style} background: {bg_gradient}; border: {border_style}; border-radius: 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 14px; font-weight: 800; color: {text_color}; margin-bottom: 4px;">🏢 {b["name"]}</div><div style="margin-bottom: 6px;">{status_tag}</div><div style="font-size: 12px; font-weight: 700; color: {text_color}; margin-bottom: 6px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 6px; height: 8px; width: 85%; margin: 0 auto; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 6px;"></div></div></div>'
+    return f'<div style="{height_style} background: {bg_gradient}; border: {border_style}; border-radius: 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 13px; font-weight: 800; color: {text_color}; margin-bottom: 4px;">🏢 {b["name"]}</div><div style="margin-bottom: 5px;">{status_tag}</div><div style="font-size: 11px; font-weight: 700; color: {text_color}; margin-bottom: 5px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 6px; height: 7px; width: 85%; margin: 0 auto; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 6px;"></div></div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
     path_v_inner = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 100%; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; font-weight: 600; color: #94a3b8; letter-spacing: 1px;">↕ AGV</div>'
 
-    grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 20px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-<div style="display: grid; grid-template-columns: 110px 18px 1fr 18px 110px; gap: 6px; align-items: stretch; margin-bottom: 16px;">
+    grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 16px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 680px; margin: 0 auto;">
+<div style="display: grid; grid-template-columns: 95px 16px 1fr 16px 95px; gap: 5px; align-items: stretch; margin-bottom: 12px;">
 <div>{render_block_card_html(bd["Block 8"], is_vertical=True)}</div>
-<div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 2px;">
+<div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 9px; font-weight: 700; color: #64748b; letter-spacing: 1px;">
 ↕ LÀN AGV DỌC TRÁI
 </div>
-<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
 <div>{render_block_card_html(bd["Block 6"])}</div>
-<div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 10px; text-align: center; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1.5px;">
+<div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 6px; text-align: center; font-size: 9px; font-weight: 700; color: #64748b; letter-spacing: 1px;">
 ↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 1)
 </div>
 <div>{render_block_card_html(bd["Block 5"])}</div>
-<div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 10px; text-align: center; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1.5px;">
+<div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 6px; text-align: center; font-size: 9px; font-weight: 700; color: #64748b; letter-spacing: 1px;">
 ↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 2)
 </div>
-<div style="display: grid; grid-template-columns: 1fr 12px 1fr 12px 1fr 12px 1fr; gap: 2px; align-items: stretch;">
+<div style="display: grid; grid-template-columns: 1fr 10px 1fr 10px 1fr 10px 1fr; gap: 2px; align-items: stretch;">
 <div>{render_block_card_html(bd["Block 1"])}</div>
 {path_v_inner}
 <div>{render_block_card_html(bd["Block 2"])}</div>
@@ -231,24 +231,24 @@ def render_exact_grid():
 <div>{render_block_card_html(bd["Block 4"])}</div>
 </div>
 </div>
-<div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 2px;">
+<div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 9px; font-weight: 700; color: #64748b; letter-spacing: 1px;">
 ↕ LÀN AGV DỌC PHẢI
 </div>
 <div>{render_block_card_html(bd["Block 7"], is_vertical=True)}</div>
 </div>
-<div style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px dashed #94a3b8; border-radius: 12px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-<div style="background-color: #fee2e2; color: #991b1b; border: 1.5px solid #f87171; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,0.05); white-space: nowrap;">
+<div style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px dashed #94a3b8; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+<div style="background-color: #fee2e2; color: #991b1b; border: 1.5px solid #f87171; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 800; white-space: nowrap;">
 🚪 CỔNG RA (EXIT)
 </div>
-<div style="text-align: center; flex-grow: 1; padding: 4px;">
-<div style="font-size: 12px; font-weight: 800; color: #334155; letter-spacing: 1px; margin-bottom: 2px;">
+<div style="text-align: center; flex-grow: 1; padding: 2px;">
+<div style="font-size: 11px; font-weight: 800; color: #334155; letter-spacing: 0.5px; margin-bottom: 2px;">
 📸 VÙNG ĐỆM THAO TÁC XOAY SỞ AGV & TRẠM QUÉT CAMERA AI
 </div>
-<div style="font-size: 10px; color: #64748b; font-weight: 600;">
+<div style="font-size: 9px; color: #64748b; font-weight: 600;">
 🤖 Thu thập dữ liệu trọng lượng, quét biển số & điều hướng Robot quay 360°
 </div>
 </div>
-<div style="background-color: #dcfce7; color: #166534; border: 1.5px solid #4ade80; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,0.05); white-space: nowrap;">
+<div style="background-color: #dcfce7; color: #166534; border: 1.5px solid #4ade80; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 800; white-space: nowrap;">
 🚪 CỔNG VÀO (ENTRY)
 </div>
 </div>
@@ -297,3 +297,4 @@ with col_info:
     st.caption("🔒 **KHÓA**: Khối đỗ tạm khóa")
     st.caption("🎯 **AGV CHỌN**: Khối đỗ vừa được gán")
     st.caption("📸 **VÙNG ĐỆM**: Trạm nhận diện Camera AI & Xoay Robot")
+
