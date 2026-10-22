@@ -14,16 +14,19 @@ st.set_page_config(
 # ==========================================
 if "blocks" not in st.session_state:
     st.session_state.blocks = [
-        {"id": "Block 1", "name": "Block 1", "capacity": 10, "occupied": 0, "is_locked": False, "priority_rank": 2, "desc": "Gần Cổng ra (Tối ưu đỗ cực ngắn hạn)"},
-        {"id": "Block 2", "name": "Block 2", "capacity": 10, "occupied": 0, "is_locked": False, "priority_rank": 3, "desc": "Khu vực trung tâm dưới (Trung hạn)"},
-        {"id": "Block 3", "name": "Block 3", "capacity": 10, "occupied": 0, "is_locked": False, "priority_rank": 2, "desc": "Khu vực trung tâm dưới (Gần cổng vào)"},
-        {"id": "Block 4", "name": "Block 4", "capacity": 10, "occupied": 0, "is_locked": False, "priority_rank": 1, "desc": "Sát Cổng vào (Ưu tiên xe nặng/vừa vào)"},
-        {"id": "Block 5", "name": "Block 5", "capacity": 15, "occupied": 0, "is_locked": False, "priority_rank": 4, "desc": "Khối ngang giữa (Trung hạn)"},
-        {"id": "Block 6", "name": "Block 6", "capacity": 15, "occupied": 0, "is_locked": False, "priority_rank": 5, "desc": "Khối ngang trên cùng (Sâu nhất - Dài hạn)"},
-        {"id": "Block 7", "name": "Block 7", "capacity": 10, "occupied": 0, "is_locked": False, "priority_rank": 1, "desc": "Khối dọc bên phải (Cổng vào)"},
-        {"id": "Block 8", "name": "Block 8", "capacity": 10, "occupied": 0, "is_locked": False, "priority_rank": 3, "desc": "Khối dọc bên trái (Lối ra)"},
+        {"id": "Block 1", "name": "Block 1", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 2", "name": "Block 2", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 3", "name": "Block 3", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 4", "name": "Block 4", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 5", "name": "Block 5", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 6", "name": "Block 6", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 7", "name": "Block 7", "capacity": 12, "occupied": 0, "is_locked": False},
+        {"id": "Block 8", "name": "Block 8", "capacity": 12, "occupied": 0, "is_locked": False},
     ]
 
+# Ép đồng bộ sức chứa 12 xe cho tất cả các Block trong session hiện tại
+for b in st.session_state.blocks:
+    b["capacity"] = 12
 if "last_assigned_res" not in st.session_state:
     st.session_state.last_assigned_res = None
 
@@ -158,7 +161,7 @@ st.divider()
 
 # ==========================================
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK (ĐÃ THU GỌN CHIỀU RỘNG CÁC BLOCK)
+# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK ĐỒNG KÍCH THƯỚC VÀ SỨC CHỨA
 # ==========================================
 col_map, col_info = st.columns([3.3, 1])
 
@@ -197,6 +200,7 @@ def render_block_card_html(b, is_vertical=False):
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9);"
         text_color = "#0f172a"
 
+    # Định dạng chiều cao cho các Block đứng và ngang sao cho cân đối
     height_style = "height: 100%; min-height: 380px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else "padding: 10px 4px;"
 
     return f'<div style="{height_style} background: {bg_gradient}; border: {border_style}; border-radius: 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 13px; font-weight: 800; color: {text_color}; margin-bottom: 4px;">🏢 {b["name"]}</div><div style="margin-bottom: 5px;">{status_tag}</div><div style="font-size: 11px; font-weight: 700; color: {text_color}; margin-bottom: 5px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 6px; height: 7px; width: 85%; margin: 0 auto; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 6px;"></div></div></div>'
@@ -258,7 +262,7 @@ def render_exact_grid():
 
 # --- CỘT TRÁI: SƠ ĐỒ MẶT BẰNG 8 BLOCK ---
 with col_map:
-    st.subheader("🗺️ Sơ đồ Mặt bằng 8 Block & Vùng Đệm Robot AGV / Camera AI")
+    st.subheader("🗺️ Sơ đồ Mặt bằng 8 Block (Sức chứa: 12 xe/Block)")
     render_exact_grid()
 
 # --- CỘT PHẢI: CHỈ DẪN ROBOT AGV & THÔNG TIN ---
@@ -298,3 +302,22 @@ with col_info:
     st.caption("🎯 **AGV CHỌN**: Khối đỗ vừa được gán")
     st.caption("📸 **VÙNG ĐỆM**: Trạm nhận diện Camera AI & Xoay Robot")
 
+def calculate_dynamic_weights(agv_battery_pct, total_occupancy_pct):
+    """
+    Tự động tính toán w1 (trọng số Năng lượng) và w2 (trọng số Vị trí tối ưu)
+    dựa trên Pin Robot và Tỷ lệ lấp đầy bãi đỗ.
+    """
+    # 1. Nếu pin yếu (< 20%), ưu tiên tuyệt đối cho tiết kiệm năng lượng
+    if agv_battery_pct < 20:
+        w1 = 0.85
+        w2 = 0.15
+    # 2. Nếu giờ cao điểm (bãi đỗ > 80%), ưu tiên xếp đúng phân vùng tối ưu
+    elif total_occupancy_pct > 80:
+        w1 = 0.25
+        w2 = 0.75
+    # 3. Trạng thái bình thường: Cân bằng 50/50 hoặc 60/40
+    else:
+        w1 = 0.55
+        w2 = 0.45
+        
+    return w1, w2
