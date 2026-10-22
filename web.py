@@ -157,7 +157,7 @@ col4.metric("Số Block tạm khóa", f"{locked_blocks_count} / 8")
 st.divider()
 
 # ==========================================
-# 6. MÔ PHỎNG CHÍNH XÁC SƠ ĐỒ 8 BLOCK THEO BẢN VẼ
+# 6. MÔ PHỎNG CHÍNH XÁC SƠ ĐỒ 8 BLOCK THEO BẢN VẼ (ĐÃ SỬA LỖI HIỂN THỊ)
 # ==========================================
 col_map, col_info = st.columns([3.3, 1])
 
@@ -190,68 +190,33 @@ def render_block_card_html(b, is_vertical=False):
 
     height_style = "height: 100%; min-height: 380px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else ""
 
-    return f'''
-    <div style="{height_style} background-color: {bg}; border: {border}; border-radius: 8px; padding: 12px; text-align: center; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
-        <div style="font-size: 15px; font-weight: 800; color: #2d3748; margin-bottom: 4px;">{b["name"]}</div>
-        <div style="margin-bottom: 6px;">{status_tag}</div>
-        <div style="font-size: 12px; font-weight: 700; color: #4a5568; margin-bottom: 4px;">{b["occupied"]} / {b["capacity"]} xe</div>
-        <div style="background-color: #e2e8f0; border-radius: 4px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 6px;">
-            <div style="background-color: {"#e53e3e" if pct==100 else "#3182ce"}; width: {pct}%; height: 100%;"></div>
-        </div>
-        <div style="font-size: 10px; color: #718096; line-height: 1.2;">{b["desc"]}</div>
-    </div>
-    '''
+    return f'<div style="{height_style} background-color: {bg}; border: {border}; border-radius: 8px; padding: 12px; text-align: center; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.04);"><div style="font-size: 15px; font-weight: 800; color: #2d3748; margin-bottom: 4px;">{b["name"]}</div><div style="margin-bottom: 6px;">{status_tag}</div><div style="font-size: 12px; font-weight: 700; color: #4a5568; margin-bottom: 4px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: #e2e8f0; border-radius: 4px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 6px;"><div style="background-color: {"#e53e3e" if pct==100 else "#3182ce"}; width: {pct}%; height: 100%;"></div></div><div style="font-size: 10px; color: #718096; line-height: 1.2;">{b["desc"]}</div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
-    grid_layout_html = f'''
-    <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1.5px solid #cbd5e0;">
-        <div style="display: grid; grid-template-columns: 120px 1fr 120px; gap: 14px; align-items: stretch;">
-            
-            <!-- CỘT TRÁI: BLOCK 8 -->
-            <div>
-                {render_block_card_html(bd["Block 8"], is_vertical=True)}
-            </div>
+    grid_layout_html = f'''<div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1.5px solid #cbd5e0;">
+<div style="display: grid; grid-template-columns: 120px 1fr 120px; gap: 14px; align-items: stretch;">
+<div>{render_block_card_html(bd["Block 8"], is_vertical=True)}</div>
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div>{render_block_card_html(bd["Block 6"])}</div>
+<div>{render_block_card_html(bd["Block 5"])}</div>
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+<div>{render_block_card_html(bd["Block 1"])}</div>
+<div>{render_block_card_html(bd["Block 2"])}</div>
+<div>{render_block_card_html(bd["Block 3"])}</div>
+<div>{render_block_card_html(bd["Block 4"])}</div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background-color: #edf2f7; border-radius: 6px; border: 1px dashed #cbd5e0; margin-top: 4px;">
+<span style="background-color: #fed7d7; color: #9b2c2c; border: 1px solid #e53e3e; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: bold;">🚪 CỔNG RA</span>
+<span style="font-size: 11px; font-weight: bold; color: #718096; letter-spacing: 1px;">🚗 HƯỚNG DI CHUYỂN ROBOT AGV</span>
+<span style="background-color: #c6f6d5; color: #22543d; border: 1px solid #38a169; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: bold;">🚪 CỔNG VÀO</span>
+</div>
+</div>
+<div>{render_block_card_html(bd["Block 7"], is_vertical=True)}</div>
+</div>
+</div>'''
 
-            <!-- CỘT GIỮA: BLOCK 6, BLOCK 5, VÀ BLOCK 1-4 -->
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <!-- BLOCK 6 (HÀNG TRÊN) -->
-                <div>{render_block_card_html(bd["Block 6"])}</div>
-
-                <!-- BLOCK 5 (HÀNG GIỮA) -->
-                <div>{render_block_card_html(bd["Block 5"])}</div>
-
-                <!-- KHỐI 1, 2, 3, 4 (HÀNG DƯỚI) -->
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-                    <div>{render_block_card_html(bd["Block 1"])}</div>
-                    <div>{render_block_card_html(bd["Block 2"])}</div>
-                    <div>{render_block_card_html(bd["Block 3"])}</div>
-                    <div>{render_block_card_html(bd["Block 4"])}</div>
-                </div>
-
-                <!-- CỔNG RA VÀ CỔNG VÀO -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background-color: #edf2f7; border-radius: 6px; border: 1px dashed #cbd5e0; margin-top: 4px;">
-                    <span style="background-color: #fed7d7; color: #9b2c2c; border: 1px solid #e53e3e; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: bold;">
-                        🚪 CỔNG RA
-                    </span>
-                    <span style="font-size: 11px; font-weight: bold; color: #718096; letter-spacing: 1px;">
-                        🚗 HƯỚNG DI CHUYỂN ROBOT AGV
-                    </span>
-                    <span style="background-color: #c6f6d5; color: #22543d; border: 1px solid #38a169; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: bold;">
-                        🚪 CỔNG VÀO
-                    </span>
-                </div>
-            </div>
-
-            <!-- CỘT PHẢI: BLOCK 7 -->
-            <div>
-                {render_block_card_html(bd["Block 7"], is_vertical=True)}
-            </div>
-            
-        </div>
-    </div>
-    '''
     st.markdown(grid_layout_html, unsafe_allow_html=True)
 
 # --- CỘT TRÁI: SƠ ĐỒ MẶT BẰNG 8 BLOCK ---
