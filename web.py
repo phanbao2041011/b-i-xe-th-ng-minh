@@ -158,7 +158,7 @@ st.divider()
 
 # ==========================================
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK KHỐI TÒA NHÀ 3D (ĐÃ NÂNG CẤP GIAO DIỆN)
+# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK VỚI CÁC LỐI ĐI ROBOT AGV (ĐÃ NÂNG CẤP KO BỊ DÍNH SÁT)
 # ==========================================
 col_map, col_info = st.columns([3.3, 1])
 
@@ -198,32 +198,62 @@ def render_block_card_html(b, is_vertical=False):
         shadow_style = "box-shadow: 0 4px 8px rgba(0,0,0,0.06), inset 0 2px 0 rgba(255,255,255,0.9), 0 5px 0 #94a3b8;"
         text_color = "#0f172a"
 
-    height_style = "height: 100%; min-height: 380px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else ""
+    height_style = "height: 100%; min-height: 420px; display: flex; flex-direction: column; justify-content: center;" if is_vertical else ""
 
-    # Đã loại bỏ hoàn toàn b["desc"] để giao diện gọn gàng và thẩm mỹ
     return f'<div style="{height_style} background: {bg_gradient}; border: {border_style}; border-radius: 12px; padding: 16px 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 16px; font-weight: 800; color: {text_color}; margin-bottom: 6px; letter-spacing: 0.5px;">🏢 {b["name"]}</div><div style="margin-bottom: 8px;">{status_tag}</div><div style="font-size: 13px; font-weight: 700; color: {text_color}; margin-bottom: 8px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 6px; height: 10px; width: 100%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 6px;"></div></div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
     grid_layout_html = f'''<div style="background-color: #f8fafc; border-radius: 16px; padding: 20px; border: 2px solid #cbd5e1; box-shadow: inset 0 0 15px rgba(0,0,0,0.02);">
-<div style="display: grid; grid-template-columns: 130px 1fr 130px; gap: 16px; align-items: stretch;">
+<div style="display: grid; grid-template-columns: 125px 28px 1fr 28px 125px; gap: 8px; align-items: stretch;">
+
+<!-- CỘT 1: BLOCK 8 -->
 <div>{render_block_card_html(bd["Block 8"], is_vertical=True)}</div>
-<div style="display: flex; flex-direction: column; gap: 14px;">
+
+<!-- CỘT 2: LỐI ĐI AGV DỌC TRÁI -->
+<div style="background-color: #e2e8f0; border: 1.5px dashed #94a3b8; border-radius: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 2px; padding: 4px;">
+↕ LỐI ĐI AGV DỌC TRÁI
+</div>
+
+<!-- CỘT 3: KHU VỰC TRUNG TÂM -->
+<div style="display: flex; flex-direction: column; gap: 10px;">
 <div>{render_block_card_html(bd["Block 6"])}</div>
+
+<!-- LÀN AGV NGANG 1 -->
+<div style="background-color: #edf2f7; border: 1.5px dashed #cbd5e0; border-radius: 6px; padding: 4px 10px; text-align: center; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 1px;">
+↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 1)
+</div>
+
 <div>{render_block_card_html(bd["Block 5"])}</div>
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+
+<!-- LÀN AGV NGANG 2 -->
+<div style="background-color: #edf2f7; border: 1.5px dashed #cbd5e0; border-radius: 6px; padding: 4px 10px; text-align: center; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 1px;">
+↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 2)
+</div>
+
+<!-- KHỐI 1, 2, 3, 4 CÓ KHOẢNG CÁCH RỘNG -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
 <div>{render_block_card_html(bd["Block 1"])}</div>
 <div>{render_block_card_html(bd["Block 2"])}</div>
 <div>{render_block_card_html(bd["Block 3"])}</div>
 <div>{render_block_card_html(bd["Block 4"])}</div>
 </div>
-<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background-color: #edf2f7; border-radius: 8px; border: 2px dashed #cbd5e0; margin-top: 6px;">
-<span style="background-color: #fed7d7; color: #9b2c2c; border: 1.5px solid #e53e3e; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">🚪 CỔNG RA</span>
-<span style="font-size: 12px; font-weight: bold; color: #64748b; letter-spacing: 1.5px;">🚗 HƯỚNG DI CHUYỂN ROBOT AGV</span>
-<span style="background-color: #c6f6d5; color: #22543d; border: 1.5px solid #38a169; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">🚪 CỔNG VÀO</span>
+
+<!-- CỔNG RA VÀ CỔNG VÀO -->
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background-color: #edf2f7; border-radius: 8px; border: 2px dashed #cbd5e0; margin-top: 4px;">
+<span style="background-color: #fed7d7; color: #9b2c2c; border: 1.5px solid #e53e3e; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold;">🚪 CỔNG RA</span>
+<span style="font-size: 12px; font-weight: bold; color: #64748b; letter-spacing: 1.5px;">🚗 HƯỚNG RA / VÀO ROBOT AGV</span>
+<span style="background-color: #c6f6d5; color: #22543d; border: 1.5px solid #38a169; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold;">🚪 CỔNG VÀO</span>
 </div>
 </div>
+
+<!-- CỘT 4: LỐI ĐI AGV DỌC PHẢI -->
+<div style="background-color: #e2e8f0; border: 1.5px dashed #94a3b8; border-radius: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 11px; font-weight: bold; color: #64748b; letter-spacing: 2px; padding: 4px;">
+↕ LỐI ĐI AGV DỌC PHẢI
+</div>
+
+<!-- CỘT 5: BLOCK 7 -->
 <div>{render_block_card_html(bd["Block 7"], is_vertical=True)}</div>
 </div>
 </div>'''
@@ -232,7 +262,7 @@ def render_exact_grid():
 
 # --- CỘT TRÁI: SƠ ĐỒ MẶT BẰNG 8 BLOCK ---
 with col_map:
-    st.subheader("🗺️ Sơ đồ Mặt bằng các Khối đỗ xe (Building Block Model)")
+    st.subheader("🗺️ Sơ đồ Mặt bằng 8 Block & Luồng xe Robot AGV")
     render_exact_grid()
 
 # --- CỘT PHẢI: CHỈ DẪN ROBOT AGV & THÔNG TIN ---
@@ -265,8 +295,9 @@ with col_info:
     """)
     
     st.markdown("---")
-    st.caption("**Chú thích màu sắc trạng thái:**")
-    st.caption("🟢 **TRỐNG**: Khối đỗ còn sức chứa")
-    st.caption("🔴 **ĐÃ ĐẦY**: Khối đỗ đã lấp đầy xe")
-    st.caption("🔒 **KHÓA**: Khối đỗ tạm khóa / Bảo trì")
-    st.caption("🎯 **AGV CHỌN**: Khối đỗ vừa được Robot gán xe")
+    st.caption("**Chú thích trạng thái:**")
+    st.caption("🟢 **TRỐNG**: Khối đỗ còn chỗ")
+    st.caption("🔴 **ĐÃ ĐẦY**: Khối đỗ đã kín xe")
+    st.caption("🔒 **KHÓA**: Khối đỗ tạm khóa")
+    st.caption("🎯 **AGV CHỌN**: Khối đỗ vừa được gán")
+
