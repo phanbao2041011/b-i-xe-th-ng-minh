@@ -156,7 +156,7 @@ st.markdown("---")
 
 
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK (TĂNG 25% CHIỀU DÀI BLOCK DỌC)
+# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK (TĂNG 50% CHIỀU DÀI BLOCK DỌC)
 # ==========================================
 col_map, col_info = st.columns([3.5, 1])
 
@@ -195,16 +195,16 @@ def render_block_card_html(b, mode="vertical"):
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04);"
         text_color = "#0f172a"
 
-    # Đã tăng chiều cao các Block dọc từ 125px lên 156px (+25%)
-    card_height = "80px" if mode == "horizontal" else "156px"
+    # Chiều cao Block dọc tăng thêm 50% từ 156px lên 234px
+    card_height = "80px" if mode == "horizontal" else "234px"
 
-    return f'<div style="width: 100%; height: {card_height}; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 8px 6px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 13px; font-weight: 800; color: {text_color}; margin-bottom: 6px;">🏢 {b["name"]}</div><div style="margin-bottom: 8px;">{status_tag}</div><div style="font-size: 11px; font-weight: 700; color: {text_color}; margin-bottom: 8px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 4px; height: 6px; width: 80%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 4px;"></div></div></div>'
+    return f'<div style="width: 100%; height: {card_height}; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 8px 6px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 14px; font-weight: 800; color: {text_color}; margin-bottom: 8px;">🏢 {b["name"]}</div><div style="margin-bottom: 10px;">{status_tag}</div><div style="font-size: 12px; font-weight: 700; color: {text_color}; margin-bottom: 12px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 4px; height: 8px; width: 80%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 4px;"></div></div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
-    # Thanh phân cách giữa các Block 1, 2, 3 được tăng chiều cao đồng bộ lên 156px
-    path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 156px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
+   # Thanh phân cách giữa các Block 1, 2, 3 được tăng chiều cao đồng bộ lên 234px
+    path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 234px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
 
     grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 14px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box;">
 <div style="display: grid; grid-template-columns: 1fr 12px 3.2fr 12px 1fr; gap: 8px; align-items: stretch; margin-bottom: 12px;">
