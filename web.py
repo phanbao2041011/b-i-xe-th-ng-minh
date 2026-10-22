@@ -1,262 +1,323 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
 
-# ---------------------------------------------------------
-# 1. CẤU HÌNH TRANG STREAMLIT (GIAO DIỆN SÁNG, SẠCH ĐẸP)
-# ---------------------------------------------------------
+# ==========================================
+# 1. CẤU HÌNH TRANG WEB
+# ==========================================
 st.set_page_config(
-    page_title="Hệ thống Tối ưu Bãi đỗ xe AGV",
-    page_icon="🚗",
+    page_title="Hệ thống AGV Smart Parking - Block Model",
+    page_icon="🤖",
     layout="wide"
 )
 
-# Custom CSS tạo phong cách thẻ bo tròn thẩm mỹ như giao diện mẫu
-st.markdown("""
-<style>
-    .main { background-color: #F8FAFC; }
-    .stButton>button {
-        background-color: #EF4444;
-        color: white;
-        font-weight: bold;
-        font-size: 16px;
-        border-radius: 10px;
-        height: 48px;
-        width: 100%;
-        border: none;
+# ==========================================
+# 2. KHỞI TẠO BỘ NHỚ MÔ HÌNH BLOCK (60 Ô / TẦNG)
+# ==========================================
+if "parking_slots" not in st.session_state:
+    slots = []
+    floors = ["Tầng 1", "Tầng B1", "Tầng B2"]
+    
+    # Định nghĩa 4 Block xếp hình cho mỗi tầng
+    # Block A: Gần Cổng AGV nhất (D=1) | Block B: (D=2) | Block C: (D=3) | Block D: Sâu nhất (D=4)
+    blocks_def = {
+        "Block A": {"dist": 1, "cols": range(1, 4), "rows": range(4, 7), "color": "#ebf8ff"},
+        "Block B": {"dist": 2, "cols": range(4, 8), "rows": range(4, 7), "color": "#f0fff4"},
+        "Block C": {"dist": 3, "cols": range(1, 5), "rows": range(1, 4), "color": "#fffaf0"},
+        "Block D": {"dist": 4, "cols": range(5, 11), "rows": range(1, 4), "color": "#faf5ff"}
     }
-    .stButton>button:hover { background-color: #DC2626; color: white; }
-    .guide-card {
-        background-color: #ECFDF5;
-        border: 2px solid #10B981;
-        border-radius: 12px;
-        padding: 16px;
-        text-align: center;
-        color: #065F46;
-        font-weight: bold;
-        font-size: 20px;
-        margin-bottom: 20px;
-    }
-    .info-card {
-        background-color: #FFFFFF;
-        border-radius: 12px;
-        padding: 18px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-</style>
-""", unsafe_allow_html=True)
+    
+    for floor in floors:
+        for block_name, b_info in blocks_def.items():
+            for y in b_info["rows"]:
+                for x in b_info["cols"]:
+                    # Ô thuộc Block A ở Tầng 1 nằm ngay lối vào là ô ưu tiên
+                    is_priority_slot = True if (floor == "Tầng 1" and block_name == "Block A" and y == 4 and x <= 2) else False
+                    
+                    slots.append({
+                        "floor": floor,
+                        "id": f"X{x}Y{y}",
+                        "x": x,
+                        "y": y,
+                        "block": block_name,
+                        "distance": b_info["dist"],
+                        "status": "TRỐNG",  # TRỐNG, ĐÃ ĐỖ, ĐÃ KHÓA
+                        "is_priority_slot": is_priority_slot
+                    })
+                
+    st.session_state.parking_slots = slots
 
-# ---------------------------------------------------------
-# 2. KHỞI TẠO TỌA ĐỘ 9 BLOCK BÃI ĐỖ XE
-# ---------------------------------------------------------
-@st.cache_data
-def get_blocks_data():
-    blocks = [
-        # Dãy dọc Trái (8) & Phải (9)
-        {"id": "BLOCK 8", "x0": 4,  "x1": 12, "y0": 15, "y1": 85, "cx": 8,  "cy": 50, "cap": 48, "occ": 25, "desc": "Dãy dọc Trái"},
-        {"id": "BLOCK 9", "x0": 88, "x1": 96, "y0": 15, "y1": 85, "cx": 92, "cy": 50, "cap": 48, "occ": 42, "desc": "Dãy dọc Phải"},
+if "last_assigned_slot" not in st.session_state:
+    st.session_state.last_assigned_slot = None
 
-        # 4 Block Trung tâm dưới (1, 2, 3, 4)
-        {"id": "BLOCK 1", "x0": 18, "x1": 30, "y0": 15, "y1": 38, "cx": 24, "cy": 26.5, "cap": 24, "occ": 18, "desc": "Khu Trung tâm 1"},
-        {"id": "BLOCK 2", "x0": 34, "x1": 46, "y0": 15, "y1": 38, "cx": 40, "cy": 26.5, "cap": 24, "occ": 12, "desc": "Khu Trung tâm 2"},
-        {"id": "BLOCK 3", "x0": 54, "x1": 66, "y0": 15, "y1": 38, "cx": 60, "cy": 26.5, "cap": 24, "occ": 21, "desc": "Khu Trung tâm 3"},
-        {"id": "BLOCK 4", "x0": 70, "x1": 82, "y0": 15, "y1": 38, "cx": 76, "cy": 26.5, "cap": 24, "occ": 10, "desc": "Khu Trung tâm 4"},
+# ==========================================
+# 3. THANH BÊN (SIDEBAR) - KHAI BÁO THÔNG TIN XE & ROBOT AGV
+# ==========================================
+st.sidebar.header("📋 Khai báo Thông tin Xe vào Cổng")
 
-        # Block Dãy Ngang (7, 6, 5)
-        {"id": "BLOCK 7", "x0": 54, "x1": 82, "y0": 43, "y1": 51, "cx": 68, "cy": 47, "cap": 30, "occ": 30, "desc": "Dãy ngang nhỏ (FULL)"},
-        {"id": "BLOCK 6", "x0": 18, "x1": 82, "y0": 57, "y1": 69, "cx": 50, "cy": 63, "cap": 60, "occ": 38, "desc": "Dãy ngang giữa"},
-        {"id": "BLOCK 5", "x0": 18, "x1": 82, "y0": 75, "y1": 87, "cx": 50, "cy": 81, "cap": 60, "occ": 54, "desc": "Dãy ngang trên"},
-    ]
-    df = pd.DataFrame(blocks)
-    df["distance"] = np.abs(df["cx"] - 50) + np.abs(df["cy"] - 0)
-    return df
+is_priority = st.sidebar.checkbox("⚡ Đối tượng Ưu tiên")
 
-df_blocks = get_blocks_data().copy()
+duration = st.sidebar.number_input(
+    "⏱️ Thời gian đỗ dự kiến (giờ):",
+    min_value=0.1,
+    max_value=168.0,
+    value=2.0,
+    step=0.5
+)
 
-# ---------------------------------------------------------
-# 3. SIDEBAR - BẢNG KHAI BÁO XE VÀO CỔNG
-# ---------------------------------------------------------
-st.sidebar.header("📋 Khai báo Xe vào Cổng")
+weight = st.sidebar.number_input(
+    "⚖️ Khối lượng xe (kg):",
+    min_value=500,
+    max_value=5000,
+    value=1500,
+    step=100,
+    help="Robot AGV sẽ tính toán lượng điện năng tiêu thụ dựa trên khối lượng xe."
+)
 
-car_weight = st.sidebar.number_input("⚖️ Khối lượng xe (kg):", min_value=800, max_value=4000, value=1800, step=100)
-park_duration = st.sidebar.number_input("⏱️ Thời gian đỗ dự kiến (giờ):", min_value=0.5, max_value=168.0, value=3.0, step=0.5)
+# --- CHẾ ĐỘ QUẢN TRỊ VIÊN (ADMIN) ---
+st.sidebar.markdown("---")
+admin_mode = st.sidebar.checkbox("🛡️ Chế độ Quản trị viên (Admin)")
+
+if admin_mode:
+    st.sidebar.subheader("⚙️ Quản lý Khóa / Mở ô đỗ")
+    selected_floor_admin = st.sidebar.selectbox("Chọn tầng:", ["Tầng 1", "Tầng B1", "Tầng B2"])
+    
+    floor_slot_ids = [s["id"] for s in st.session_state.parking_slots if s["floor"] == selected_floor_admin]
+    
+    selected_slots_to_toggle = st.sidebar.multiselect(
+        "Chọn các ô cần thao tác:",
+        options=floor_slot_ids,
+        placeholder="Chọn một hoặc nhiều ô..."
+    )
+    
+    col_lock, col_unlock = st.sidebar.columns(2)
+    
+    if col_lock.button("🔒 Khóa ô", use_container_width=True):
+        if selected_slots_to_toggle:
+            for s in st.session_state.parking_slots:
+                if s["floor"] == selected_floor_admin and s["id"] in selected_slots_to_toggle:
+                    s["status"] = "ĐÃ KHÓA"
+            st.sidebar.success(f"Đã KHÓA {len(selected_slots_to_toggle)} ô tại {selected_floor_admin}!")
+            st.rerun()
+            
+    if col_unlock.button("🔓 Mở khóa", use_container_width=True):
+        if selected_slots_to_toggle:
+            for s in st.session_state.parking_slots:
+                if s["floor"] == selected_floor_admin and s["id"] in selected_slots_to_toggle:
+                    s["status"] = "TRỐNG"
+            st.sidebar.success(f"Đã MỞ KHÓA {len(selected_slots_to_toggle)} ô tại {selected_floor_admin}!")
+            st.rerun()
+
+    if st.sidebar.button("🔄 Reset toàn bộ bãi đỗ", use_container_width=True):
+        for s in st.session_state.parking_slots:
+            s["status"] = "TRỐNG"
+        st.session_state.last_assigned_slot = None
+        st.sidebar.info("Đã đặt lại tất cả các ô về trạng thái TRỐNG!")
+        st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ Trọng số Tối ưu")
-w_energy = st.sidebar.slider("Tiết kiệm pin AGV:", 0.0, 1.0, 0.45, 0.05)
-w_retrieval = st.sidebar.slider("Tốc độ trả xe:", 0.0, 1.0, 0.35, 0.05)
-w_balance = st.sidebar.slider("Cân bằng tải bãi:", 0.0, 1.0, 0.20, 0.05)
 
-btn_submit = st.sidebar.button("🚗 ĐỖ XE THEO GỢI Ý")
-
-# ---------------------------------------------------------
-# 4. THUẬT TOÁN TÍNH CHỌN BLOCK TỐI ƯU
-# ---------------------------------------------------------
-def select_best_block(df, weight, duration, we, wr, wb):
-    calc = df.copy()
-    calc["available"] = calc["cap"] - calc["occ"]
-    calc["is_full"] = calc["available"] <= 0
-
-    alpha, beta, gamma = 0.01, 2.5, 3.0
-    calc["raw_energy"] = weight * (alpha * calc["distance"] + beta)
-    calc["raw_retrieval"] = (calc["distance"] + gamma) / (duration + 0.1)
-    calc["occ_rate"] = calc["occ"] / calc["cap"]
-    calc["raw_balance"] = calc["occ_rate"] ** 2
-
-    def min_max(s):
-        return (s - s.min()) / (s.max() - s.min()) if s.max() != s.min() else pd.Series(0.0, index=s.index)
-
-    tot = we + wr + wb
-    we_n, wr_n, wb_n = (we/tot, wr/tot, wb/tot) if tot > 0 else (1/3, 1/3, 1/3)
-
-    calc["norm_e"] = min_max(calc["raw_energy"])
-    calc["norm_r"] = min_max(calc["raw_retrieval"])
-    calc["norm_b"] = min_max(calc["raw_balance"])
-
-    calc["score"] = we_n * calc["norm_e"] + wr_n * calc["norm_r"] + wb_n * calc["norm_b"]
-    calc.loc[calc["is_full"], "score"] = 999.0
-    return calc
-
-res_df = select_best_block(df_blocks, car_weight, park_duration, w_energy, w_retrieval, w_balance)
-valid_blocks = res_df[~res_df["is_full"]]
-best_block = valid_blocks.loc[valid_blocks["score"].idxmin()] if not valid_blocks.empty else None
-
-# ---------------------------------------------------------
-# 5. CHIA BỐ CỤC CHÍNH (SƠ ĐỒ TRỰC QUAN + CHỈ DẪN HỆ THỐNG)
-# ---------------------------------------------------------
-col_main, col_info = st.columns([7, 3])
-
-with col_main:
-    st.subheader("🗺️ Sơ đồ Mặt bằng Bãi đỗ xe")
-
-    fig = go.Figure()
-
-    # 1. Tường bao bãi đỗ
-    fig.add_shape(type="rect", x0=0, y0=0, x1=100, y1=95, line=dict(color="#CBD5E1", width=3), fillcolor="#F8FAFC")
-
-    # 2. Đường đi AGV chính (Màu xám nhạt)
-    agv_lanes = [
-        {"x": [14, 14], "y": [6, 90]}, {"x": [86, 86], "y": [6, 90]}, {"x": [50, 50], "y": [0, 53]},
-        {"x": [14, 86], "y": [6, 6]}, {"x": [14, 86], "y": [53, 53]}, {"x": [14, 86], "y": [72, 72]}, {"x": [14, 86], "y": [90, 90]}
-    ]
-    for lane in agv_lanes:
-        fig.add_trace(go.Scatter(x=lane["x"], y=lane["y"], mode="lines", line=dict(color="#E2E8F0", width=8), showlegend=False, hoverinfo="none"))
-
-    # 3. Cổng ENTRANCE
-    fig.add_shape(type="rect", x0=42, y0=-4, x1=58, y1=1, fillcolor="#F59E0B", line=dict(color="#B45309", width=2))
-    fig.add_trace(go.Scatter(x=[50], y=[-1.5], mode="text", text=["<b>🚪 CỔNG VÀO</b>"], textfont=dict(color="white", size=11), showlegend=False))
-
-    # 4. Vẽ 9 Block
-    for _, row in res_df.iterrows():
-        is_selected = (best_block is not None) and (row["id"] == best_block["id"])
-
-        if row["is_full"]:
-            fill_col = "#FCA5A5"      # Đỏ nhạt (Đã đầy)
-            border_col = "#EF4444"
-            txt_status = "ĐÃ ĐẦY"
-            txt_color = "#7F1D1D"
-        elif is_selected:
-            fill_col = "#10B981"      # Xanh lá sáng (Được chọn)
-            border_col = "#047857"
-            txt_status = "⭐ CHỌN"
-            txt_color = "#FFFFFF"
-        else:
-            fill_bg = "#FEF08A"       # Vàng nhạt (Còn trống)
-            border_col = "#EAB308"
-            txt_status = "TRỐNG"
-            txt_color = "#713F12"
-
-        fig.add_shape(
-            type="rect",
-            x0=row["x0"], y0=row["y0"],
-            x1=row["x1"], y1=row["y1"],
-            fillcolor=fill_col if not ('fill_bg' in locals() and not is_selected and not row["is_full"]) else fill_bg,
-            line=dict(color=border_col, width=2),
-            opacity=0.9
-        )
-
-        fig.add_trace(go.Scatter(
-            x=[row["cx"]], y=[row["cy"]],
-            mode="text",
-            text=[f"<b>{row['id']}</b><br><size=9>{txt_status}</size>"],
-            textfont=dict(color=txt_color, size=11),
-            hoverinfo="text",
-            hovertext=f"<b>{row['id']}</b> ({row['desc']})<br>Trống: {row['available']}/{row['cap']} ô",
-            showlegend=False
-        ))
-
-# 5. MŨI TÊN CHỈ DẪN AGV ĐẾN BLOCK ĐƯỢC CHỌN (Đường Xanh Lá)
-    if best_block is not None:
-        target_x, target_y = best_block["cx"], best_block["cy"]
-        
-        # Tuyến đường gấp khúc từ Cổng (50, 0) -> Giao điểm ngang -> Tâm Block
-        path_x = [50, 50, target_x]
-        path_y = [0, target_y, target_y]
-
-        fig.add_trace(go.Scatter(
-            x=path_x, y=path_y,
-            mode="lines",
-            line=dict(color="#10B981", width=5),
-            showlegend=False
-        ))
-
-        # Thêm Mũi tên chỉ hướng ở góc rẽ & điểm đích
-        fig.add_annotation(
-            x=target_x, y=target_y,
-            ax=50 if target_x == 50 else (target_x - 5 if target_x > 50 else target_x + 5),
-            ay=target_y - 5 if target_x == 50 else target_y,
-            xref="x", yref="y", axref="x", ayref="y",
-            showarrow=True,
-            arrowhead=3,
-            arrowsize=1.5,
-            arrowwidth=4,
-            arrowcolor="#10B981"
-        )
-
-    fig.update_layout(
-        xaxis=dict(range=[-2, 102], showgrid=False, zeroline=False, visible=False),
-        yaxis=dict(range=[-6, 98], showgrid=False, zeroline=False, visible=False),
-        height=520,
-        margin=dict(l=5, r=5, t=5, b=5),
-        plot_bgcolor="#FFFFFF"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Chú thích màu chuẩn như ảnh tham khảo
-    st.markdown("""
-    **Chú thích màu:** 
-    🟩 **Block chọn đỗ** &nbsp;|&nbsp; 
-    🟨 **Block còn trống** &nbsp;|&nbsp; 
-    🟥 **Block đã đầy** &nbsp;|&nbsp; 
-    🟩 **Đường chỉ dẫn AGV**
-    """)
-
-with col_info:
-    st.markdown("### 📌 Chỉ dẫn Hệ thống")
+# ==========================================
+# 4. THUẬT TOÁN ĐIỀU HÀNH ROBOT AGV & LỰA CHỌN BLOCK
+# ==========================================
+def find_best_slot_agv(duration, weight, is_priority):
+    all_slots = st.session_state.parking_slots
+    floors_order = ["Tầng 1", "Tầng B1", "Tầng B2"]
     
-    if best_block is not None:
-        st.markdown(
-            f"""
-            <div class="guide-card">
-                🎯 BLOCK CHỌN GẮN: {best_block['id']}
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
+    # 1. Tính toán Điểm Ưu tiên Tối ưu (Urgency Score)
+    urgency_score = (weight / 1000.0) * 2.5 + (24.0 / (duration + 0.5)) * 3.5
+    
+    # 2. Quyết định Block mục tiêu ban đầu
+    if is_priority or urgency_score >= 12.0:
+        target_block = "Block A"  # Gần Cổng AGV nhất
+    elif urgency_score >= 8.0:
+        target_block = "Block B"
+    elif urgency_score >= 4.0:
+        target_block = "Block C"
     else:
-        st.error("⚠️ HỆ THỐNG ĐÃ ĐẦY Ô ĐỖ")
+        target_block = "Block D"  # Sâu nhất
+
+    # 3. Xác định tầng hầm mục tiêu ban đầu
+    if is_priority or duration <= 2.0:
+        target_floor = "Tầng 1"
+    elif duration <= 8.0:
+        target_floor = "Tầng B1"
+    else:
+        target_floor = "Tầng B2"
+
+    start_floor_idx = floors_order.index(target_floor)
+    search_floors = floors_order[start_floor_idx:] + floors_order[:start_floor_idx]
+
+    blocks_order = ["Block A", "Block B", "Block C", "Block D"]
+    start_block_idx = blocks_order.index(target_block)
+    search_blocks = blocks_order[start_block_idx:] + blocks_order[:start_block_idx]
+
+    # DUYỆT QUA CÁC TẦNG VÀ CÁC BLOCK DẠNG MÔ HÌNH XẾP HÌNH
+    for current_floor in search_floors:
+        for current_block in search_blocks:
+            available = [
+                s for s in all_slots 
+                if s["floor"] == current_floor and s["block"] == current_block and s["status"] == "TRỐNG"
+            ]
+
+            if available:
+                selected_slot = available[0]
+                selected_slot["status"] = "ĐÃ ĐỖ"
+                
+                # Ước tính năng lượng AGV tiêu thụ (kWh) = Weight * Distance * Factor
+                agv_energy = round(weight * selected_slot["distance"] * 0.00012, 2)
+                
+                return {
+                    "slot": selected_slot,
+                    "urgency_score": round(urgency_score, 1),
+                    "target_block": target_block,
+                    "assigned_block": current_block,
+                    "agv_energy": agv_energy
+                }
+
+    return None
+
+# NÚT KÍCH HOẠT ROBOT AGV TÌM VỊ TRÍ
+if st.sidebar.button("🤖 ROBOT AGV VẬN HÀNH ĐỖ XE", use_container_width=True):
+    result = find_best_slot_agv(duration, weight, is_priority)
+    if result:
+        slot = result["slot"]
+        st.session_state.last_assigned_slot = result
+        st.sidebar.success(f"✅ Robot AGV gán thành công: **{slot['id']}** ({result['assigned_block']} - **{slot['floor']}**)")
+    else:
+        st.session_state.last_assigned_slot = "FULL"
+        st.sidebar.error("⛔ **ROBOT AGV BÁO: BÃI ĐỖ ĐÃ HẾT TẤT CẢ CÁC Ô TRỐNG KHẢ DỤNG!**")
+
+# ==========================================
+# 5. HIỂN THỊ TIÊU ĐỀ & THỐNG KÊ TỔNG QUAN
+# ==========================================
+st.title("🤖 Hệ thống Tối ưu Bãi đỗ xe Tự động (Mô hình Block AGV)")
+
+total_slots = len(st.session_state.parking_slots)
+occupied_slots = sum(1 for s in st.session_state.parking_slots if s["status"] == "ĐÃ ĐỖ")
+locked_slots = sum(1 for s in st.session_state.parking_slots if s["status"] == "ĐÃ KHÓA")
+free_slots = total_slots - occupied_slots - locked_slots
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Tổng quy mô", f"{total_slots} ô")
+col2.metric("Ô còn trống", f"{free_slots} ô")
+col3.metric("Xe đã đỗ", f"{occupied_slots} xe")
+col4.metric("Ô tạm khóa", f"{locked_slots} ô")
+
+st.divider()
+
+# ==========================================
+# 6. GIAO DIỆN SƠ ĐỒ SÀN BẢNG BLOCK & CHỈ DẪN HỆ THỐNG
+# ==========================================
+col_map, col_info = st.columns([3.2, 1])
+
+def render_agv_block_grid(floor_name):
+    slots = [s for s in st.session_state.parking_slots if s["floor"] == floor_name]
+    last_res = st.session_state.last_assigned_slot
+    last_slot_info = last_res["slot"] if isinstance(last_res, dict) else None
+
+    top_rows = [6, 5, 4]
+    bottom_rows = [3, 2, 1]
+
+    def build_grid_html(row_list):
+        grid_html = '<div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-bottom: 8px;">'
+        for y in row_list:
+            for x in range(1, 11):
+                slot = next((s for s in slots if s["x"] == x and s["y"] == y), None)
+                if not slot:
+                    continue
+                
+                is_last = (last_slot_info and last_slot_info["id"] == slot["id"] and last_slot_info["floor"] == floor_name)
+                
+                if is_last:
+                    bg_color = "#c6f6d5"
+                    border_color = "#38a169"
+                    text_color = "#22543d"
+                    status_text = "AGV 🎯"
+                elif slot["status"] == "ĐÃ KHÓA":
+                    bg_color = "#e2e8f0"
+                    border_color = "#a0aec0"
+                    text_color = "#4a5568"
+                    status_text = "🔒 KHÓA"
+                elif slot["status"] == "ĐÃ ĐỖ":
+                    bg_color = "#fed7d7"
+                    border_color = "#e53e3e"
+                    text_color = "#9b2c2c"
+                    status_text = "ĐÃ ĐỖ"
+                elif slot["is_priority_slot"]:
+                    bg_color = "#fefcbf"
+                    border_color = "#d69e2e"
+                    text_color = "#744210"
+                    status_text = "⭐ UT"
+                else:
+                    bg_color = "#ffffff"
+                    border_color = "#cbd5e0"
+                    text_color = "#2d3748"
+                    status_text = slot["block"].replace("Block ", "B-")
+
+                grid_html += f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 6px; padding: 5px 1px; text-align: center; font-family: sans-serif;"><div style="font-size: 11px; font-weight: 800; color: {text_color};">{slot["id"]}</div><div style="font-size: 8px; font-weight: 700; color: {text_color}; margin-top: 2px;">{status_text}</div></div>'
+        grid_html += '</div>'
+        return grid_html
+
+    map_html = f'''<div style="background-color: #ffffff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0;">
+{build_grid_html(top_rows)}
+<div style="display: flex; align-items: center; justify-content: space-between; background-color: #edf2f7; border: 2px dashed #cbd5e0; border-radius: 8px; padding: 8px 14px; margin: 12px 0; font-family: sans-serif;">
+<span style="background-color: #fefcbf; color: #744210; border: 1px solid #d69e2e; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🤖 TRẠM AGV HUB / CỔNG VÀO</span>
+<span style="font-size: 11px; font-weight: bold; color: #4a5568; letter-spacing: 1px;">🚗 LÀN ĐƯỜNG DI CHUYỂN AGV (MAIN DRIVEWAY) ──────────────────►</span>
+<span style="background-color: #c6f6d5; color: #22543d; border: 1px solid #38a169; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 LỐI RA</span>
+</div>
+{build_grid_html(bottom_rows)}
+</div>'''
+
+    st.markdown(map_html, unsafe_allow_html=True)
+
+# --- CỘT TRÁI: SƠ ĐỒ BÃI ĐỖ XE ---
+with col_map:
+    st.subheader("🗺️ Sơ đồ Phân bổ Block bãi đỗ xe")
+    
+    tab1, tab2, tab3 = st.tabs([
+        "Tầng 1 (Cổng AGV & Ngắn hạn)", 
+        "Tầng B1 (Trung hạn)", 
+        "Tầng B2 (Dài hạn)"
+    ])
+    
+    with tab1:
+        render_agv_block_grid("Tầng 1")
+    with tab2:
+        render_agv_block_grid("Tầng B1")
+    with tab3:
+        render_agv_block_grid("Tầng B2")
+
+# --- CỘT PHẢI: CHỈ DẪN HỆ THỐNG AGV & THÔNG TIN ---
+with col_info:
+    st.subheader("📌 Chỉ dẫn Robot AGV")
+    
+    last_res = st.session_state.last_assigned_slot
+    
+    if last_res == "FULL":
+        st.error("⛔ **THÔNG BÁO AGV:**\n\nHiện tại tất cả các ô trong các Block đều đã **KÍN CHỖ HOẶC BỊ KHÓA**.")
+    elif isinstance(last_res, dict):
+        s_info = last_res["slot"]
+        st.success(f"""
+        🎯 **GÁN VỊ TRÍ AGV:** **{s_info['id']}**  
+        * **Phân cụm:** `{s_info['block']}`  
+        * **Vị trí tầng:** `{s_info['floor']}`  
+        * **Tiêu thụ pin AGV dự kiến:** `{last_res['agv_energy']} kWh`
+        """)
+    else:
+        st.info("🎯 **Chưa có lệnh di chuyển cho AGV.**\n\nNhấn nút 'ROBOT AGV VẬN HÀNH ĐỖ XE' để kích hoạt.")
 
     st.markdown("---")
-    st.markdown("### ℹ️ Thông tin Khai báo Xe")
+    st.subheader("ℹ️ Thông tin Khai báo Xe")
     
     st.markdown(f"""
-    <div class="info-card">
-        <p>• <b>Khối lượng xe:</b> {car_weight} kg 🚘</p>
-        <p>• <b>Thời gian đỗ:</b> {park_duration} giờ ⏱️</p>
-        <p>• <b>Vị trí khu vực:</b> {best_block['desc'] if best_block is not None else 'N/A'}</p>
-        <p>• <b>Quãng đường AGV:</b> {int(best_block['distance']) if best_block is not None else 'N/A'} m</p>
-        <p>• <b>Số ô trống còn lại:</b> {best_block['available'] if best_block is not None else '0'} ô</p>
-    </div>
-    """, unsafe_allow_html=True)
+    * **Khối lượng xe:** `{weight} kg`
+    * **Thời gian đỗ:** `{duration} giờ`
+    * **Đối tượng:** {"⚡ Ưu tiên" if is_priority else "🚗 Thông thường"}
+    * **Chỉ số Tối ưu (Urgency):** `{round((weight/1000.0)*2.5 + (24.0/(duration+0.5))*3.5, 1)} điểm`
+    """)
+    
+    st.markdown("---")
+    st.caption("**Ghi chú phân vùng Block:**")
+    st.caption("🟦 **Block A (B-A)**: Gần Cổng AGV nhất (Tối ưu xe nặng/ngắn hạn)")
+    st.caption("🟩 **Block B (B-B)**: Vùng trung bình gần")
+    st.caption("🟧 **Block C (B-C)**: Vùng trung bình xa")
+    st.caption("🟪 **Block D (B-D)**: Vùng sâu nhất (Tối ưu xe đỗ lâu dài)")
