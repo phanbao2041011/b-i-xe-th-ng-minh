@@ -1,5 +1,4 @@
 import streamlit as st
-import math
 
 # ==========================================
 # 1. CẤU HÌNH TRANG WEB STREAMLIT
@@ -30,32 +29,26 @@ if "last_assigned_res" not in st.session_state:
 # ==========================================
 # 3. THUẬT TOÁN TÍNH TOÁN & TỐI ƯU HÓA AGV
 # ==========================================
-# Bảng khoảng cách cơ sở từ Cổng vào (ENTRY) đến tâm từng Block (đơn vị: bước lưới)
 BLOCK_DISTANCES = {
     "Block 1": 4, "Block 2": 3, "Block 3": 2, "Block 4": 1,
     "Block 5": 5, "Block 6": 7, "Block 7": 2, "Block 8": 8, "Block 9": 6
 }
 
 def calculate_urgency(weight, duration, is_priority):
-    """Tính điểm cấp thiết / ưu tiên đỗ xe"""
     score = (weight / 1000.0) * 2.5 + (24.0 / (duration + 0.5)) * 3.5
     if is_priority:
         score += 5.0
     return round(score, 2)
 
 def calculate_agv_energy(block_id, weight):
-    """Tính toán mức tiêu thụ năng lượng của Robot AGV (kWh)"""
     dist = BLOCK_DISTANCES.get(block_id, 5)
-    e_base = 0.03   # Năng lượng cơ sở khi AGV di chuyển không tải
-    k_load = 0.000025  # Hệ số phụ thuộc tải trọng xe
+    e_base = 0.03
+    k_load = 0.000025
     energy = dist * (e_base + k_load * weight)
     return round(energy, 2)
 
 def find_optimal_block(weight, duration, is_priority):
-    """Thuật toán sàng lọc và lựa chọn Block tối ưu"""
     urgency = calculate_urgency(weight, duration, is_priority)
-    
-    # 1. Lọc các Block hợp lệ (chưa khóa và còn chỗ trống)
     valid_blocks = [b for b in st.session_state.blocks if not b["is_locked"] and b["occupied"] < b["capacity"]]
     
     if not valid_blocks:
@@ -63,26 +56,22 @@ def find_optimal_block(weight, duration, is_priority):
 
     best_block = None
     min_cost = float('inf')
-
-    # Trọng số tối ưu hóa (w1: Năng lượng AGV, w2: Phù hợp phân vùng)
     w1, w2 = 0.6, 0.4
 
     for b in valid_blocks:
         b_id = b["id"]
         energy = calculate_agv_energy(b_id, weight)
         
-        # Điểm lý tưởng chiến lược từng vùng
         ideal_score = 15.0
         if b_id in ["Block 4", "Block 7"]:
-            ideal_score = 25.0  # Ưu tiên xe nặng/cấp thiết gần cổng vào
+            ideal_score = 25.0
         elif b_id in ["Block 1", "Block 9"]:
-            ideal_score = 20.0  # Gần cổng ra
+            ideal_score = 20.0
         elif b_id in ["Block 5", "Block 6"]:
-            ideal_score = 8.0   # Đỗ dài hạn vùng sâu
+            ideal_score = 8.0
 
-        # Hàm chi phí tổng hợp
         occupancy_ratio = b["occupied"] / b["capacity"]
-        penalty = occupancy_ratio * 3.0  # Phạt nhẹ nếu block đã gần đầy để cân bằng tải
+        penalty = occupancy_ratio * 3.0
         
         cost = w1 * energy * 10 + w2 * abs(urgency - ideal_score) + penalty
 
@@ -110,12 +99,10 @@ weight = st.sidebar.number_input("⚖️ Khối lượng xe (kg):", min_value=50
 
 st.sidebar.markdown("---")
 
-# Nut vận hành AGV
 if st.sidebar.button("🚗 ROBOT AGV VẬN HÀNH ĐỖ XE", type="primary", use_container_width=True):
     res = find_optimal_block(weight, duration, is_priority)
     st.session_state.last_assigned_res = res
     if res != "FULL" and isinstance(res, dict):
-        # Tăng số lượng xe trong Block được chọn
         target_id = res["assigned_block"]["id"]
         for b in st.session_state.blocks:
             if b["id"] == target_id:
@@ -127,7 +114,6 @@ if st.sidebar.button("🚗 ROBOT AGV VẬN HÀNH ĐỖ XE", type="primary", use_
 
 st.sidebar.markdown("---")
 
-# Chế độ Admin
 st.sidebar.subheader("⚙️ Chế độ Quản trị viên (Admin)")
 admin_mode = st.sidebar.checkbox("🔓 Bật Chế độ Quản trị", value=True)
 
@@ -139,7 +125,6 @@ if admin_mode:
         default=[b["id"] for b in st.session_state.blocks if b["is_locked"]]
     )
     
-    # Cập nhật trạng thái khóa
     for b in st.session_state.blocks:
         b["is_locked"] = (b["id"] in selected_to_lock)
 
@@ -171,14 +156,14 @@ st.markdown("---")
 
 
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ BÃI ĐỖ XE 9 BLOCK
+# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK CHUẨN THEO BẢN VẼ
 # ==========================================
 col_map, col_info = st.columns([3.5, 1])
 
 def get_block_dict():
     return {b["id"]: b for b in st.session_state.blocks}
 
-def render_block_card_html(b, is_horizontal=False):
+def render_block_card_html(b, mode="vertical"):
     last_res = st.session_state.last_assigned_res
     last_b_id = last_res["assigned_block"]["id"] if isinstance(last_res, dict) else None
     
@@ -210,22 +195,38 @@ def render_block_card_html(b, is_horizontal=False):
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04);"
         text_color = "#0f172a"
 
-    card_height = "85px" if is_horizontal else "105px"
-
-    return f'<div style="width: 100%; height: {card_height}; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 12px; font-weight: 800; color: {text_color}; margin-bottom: 2px;">🏢 {b["name"]}</div><div style="margin-bottom: 3px;">{status_tag}</div><div style="font-size: 10px; font-weight: 700; color: {text_color}; margin-bottom: 3px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 4px; height: 5px; width: 80%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%;"></div></div></div>'
+    # VẼ 4 Ô NHỎ BÊN TRONG CỦA BLOCK THEO BẢN VẼ
+    if mode == "horizontal":
+        # Khối ngang (Block 5, 6): 4 ô xếp hàng ngang
+        slots_html = ""
+        for i in range(4):
+            slot_filled = (pct >= (i + 1) * 25)
+            slot_bg = "linear-gradient(180deg, #3b82f6, #1d4ed8)" if slot_filled else "#f1f5f9"
+            slots_html += f'<div style="flex: 1; height: 100%; background: {slot_bg}; border-radius: 3px; border: 1px solid #cbd5e1;"></div>'
+        
+        return f'<div style="width: 100%; height: 75px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 6px 10px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="display: flex; justify-content: space-between; align-items: center; width: 100%;"><span style="font-size: 12px; font-weight: 800; color: {text_color};">🏢 {b["name"]}</span>{status_tag}<span style="font-size: 10px; font-weight: 700; color: {text_color};">{b["occupied"]}/{b["capacity"]} xe</span></div><div style="display: flex; gap: 4px; width: 100%; height: 22px; background: rgba(0,0,0,0.03); padding: 3px; border-radius: 5px; border: 1px solid #cbd5e1; box-sizing: border-box;">{slots_html}</div></div>'
+    else:
+        # Khối dọc (Block 1, 2, 3, 4, 7, 8, 9): 4 ô xếp chồng chiều dọc
+        slots_html = ""
+        for i in range(4):
+            slot_filled = (pct >= (i + 1) * 25)
+            slot_bg = "linear-gradient(90deg, #3b82f6, #1d4ed8)" if slot_filled else "#f1f5f9"
+            slots_html += f'<div style="flex: 1; width: 100%; background: {slot_bg}; border-radius: 3px; border: 1px solid #cbd5e1;"></div>'
+            
+        return f'<div style="width: 100%; height: 140px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 6px 4px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 11px; font-weight: 800; color: {text_color};">🏢 {b["name"]}</div><div>{status_tag}</div><div style="font-size: 10px; font-weight: 700; color: {text_color};">{b["occupied"]}/{b["capacity"]} xe</div><div style="display: flex; flex-direction: column; gap: 2px; width: 80%; height: 52px; background: rgba(0,0,0,0.03); padding: 3px; border-radius: 5px; border: 1px solid #cbd5e1; box-sizing: border-box;">{slots_html}</div></div>'
 
 def render_exact_grid():
     bd = get_block_dict()
 
-    path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 105px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
+    path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 140px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
 
     grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 14px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box;">
 <div style="display: grid; grid-template-columns: 1fr 12px 3.2fr 12px 1fr; gap: 8px; align-items: stretch; margin-bottom: 12px;">
 
 <!-- CỘT CÁNH TRÁI: BLOCK 8 (TRÊN) & BLOCK 9 (DƯỚI) -->
 <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 12px;">
-{render_block_card_html(bd["Block 8"])}
-{render_block_card_html(bd["Block 9"])}
+{render_block_card_html(bd["Block 8"], mode="vertical")}
+{render_block_card_html(bd["Block 9"], mode="vertical")}
 </div>
 
 <!-- LẮP LÀN AGV DỌC TRÁI -->
@@ -234,9 +235,9 @@ def render_exact_grid():
 </div>
 
 <!-- KHU TRUNG TÂM -->
-<div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+<div style="display: flex; flex-direction: column; justify-content: space-between; gap: 8px; align-items: center;">
 <!-- BLOCK 6 (KHỐI NGANG TRÊN) -->
-<div style="width: 100%;">{render_block_card_html(bd["Block 6"], is_horizontal=True)}</div>
+<div style="width: 100%;">{render_block_card_html(bd["Block 6"], mode="horizontal")}</div>
 
 <!-- LÀN AGV NGANG 1 -->
 <div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 2px 4px; width: 100%; text-align: center; font-size: 8px; font-weight: 700; color: #64748b;">
@@ -244,7 +245,7 @@ def render_exact_grid():
 </div>
 
 <!-- BLOCK 5 (KHỐI NGANG DƯỚI) -->
-<div style="width: 100%;">{render_block_card_html(bd["Block 5"], is_horizontal=True)}</div>
+<div style="width: 100%;">{render_block_card_html(bd["Block 5"], mode="horizontal")}</div>
 
 <!-- LÀN AGV NGANG 2 -->
 <div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 2px 4px; width: 100%; text-align: center; font-size: 8px; font-weight: 700; color: #64748b;">
@@ -253,11 +254,11 @@ def render_exact_grid():
 
 <!-- HÀNG 3 BLOCK DỌC: BLOCK 1, BLOCK 2, BLOCK 3 -->
 <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 4px; align-items: center; width: 100%;">
-<div>{render_block_card_html(bd["Block 1"])}</div>
+<div>{render_block_card_html(bd["Block 1"], mode="vertical")}</div>
 {path_v}
-<div>{render_block_card_html(bd["Block 2"])}</div>
+<div>{render_block_card_html(bd["Block 2"], mode="vertical")}</div>
 {path_v}
-<div>{render_block_card_html(bd["Block 3"])}</div>
+<div>{render_block_card_html(bd["Block 3"], mode="vertical")}</div>
 </div>
 </div>
 
@@ -268,8 +269,8 @@ def render_exact_grid():
 
 <!-- CỘT CÁNH PHẢI: BLOCK 7 (TRÊN) & BLOCK 4 (DƯỚI) -->
 <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 12px;">
-{render_block_card_html(bd["Block 7"])}
-{render_block_card_html(bd["Block 4"])}
+{render_block_card_html(bd["Block 7"], mode="vertical")}
+{render_block_card_html(bd["Block 4"], mode="vertical")}
 </div>
 </div>
 
