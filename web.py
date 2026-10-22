@@ -104,11 +104,7 @@ w_e = st.sidebar.slider("Ưu tiên Năng lượng AGV:", 0.0, 1.0, 0.45, 0.05)
 w_r = st.sidebar.slider("Ưu tiên Tốc độ lấy xe:", 0.0, 1.0, 0.35, 0.05)
 w_b = st.sidebar.slider("Ưu tiên Cân bằng tải:", 0.0, 1.0, 0.20, 0.05)  # <--- Bổ sung ngoặc ) ở đây nếu thiếu
 
-# ---------------------------------------------------------
-# 4. HÀM TÍNH TOÁN CHỌN BLOCK
-# ---------------------------------------------------------
-def evaluate_blocks(df, weight, duration, we, wr, wb):
-    # ---------------------------------------------------------
+# -----------------------------------------------------
 # 4. HÀM TÍNH TOÁN CHỌN BLOCK
 # ---------------------------------------------------------
 def evaluate_blocks(df, weight, duration, we, wr, wb):
