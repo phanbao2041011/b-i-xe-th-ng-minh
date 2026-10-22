@@ -27,7 +27,7 @@ if "last_assigned_res" not in st.session_state:
 
 
 # ==========================================
-# 3. THUẬT TOÁN TÍNH TOÁN & TỐI ƯU HÓA AGV
+# 3. THUẬT TOÁN TÍNH TOÁN & PHÂN VÙNG THỜI GIAN AGV
 # ==========================================
 BLOCK_DISTANCES = {
     "Block 1": 4, "Block 2": 3, "Block 3": 2, "Block 4": 1,
@@ -48,12 +48,23 @@ def calculate_agv_energy(block_id, weight):
     return round(energy, 2)
 
 def find_optimal_block(weight, duration):
-    """Thuật toán sàng lọc và lựa chọn Block tối ưu"""
+    """Thuật toán sàng lọc & phân vùng chiến lược theo mốc thời gian gửi xe"""
     urgency = calculate_urgency(weight, duration)
     valid_blocks = [b for b in st.session_state.blocks if not b["is_locked"] and b["occupied"] < b["capacity"]]
     
     if not valid_blocks:
         return "FULL"
+
+    # PHÂN LOẠI CỤM BLOCK THEO MỐC THỜI GIAN
+    if duration <= 5.0:
+        preferred_blocks = ["Block 4", "Block 3", "Block 2", "Block 7", "Block 1"]
+        tier_name = "⏱️ Ngắn hạn (≤ 5 giờ)"
+    elif duration <= 24.0:
+        preferred_blocks = ["Block 5", "Block 9", "Block 1"]
+        tier_name = "📅 Trung hạn (5 - 24 giờ)"
+    else:
+        preferred_blocks = ["Block 6", "Block 8", "Block 5"]
+        tier_name = "🧱 Dài hạn (> 1 ngày)"
 
     best_block = None
     min_cost = float('inf')
@@ -74,7 +85,10 @@ def find_optimal_block(weight, duration):
         occupancy_ratio = b["occupied"] / b["capacity"]
         penalty = occupancy_ratio * 3.0
         
-        cost = w1 * energy * 10 + w2 * abs(urgency - ideal_score) + penalty
+        # Hệ số phạt phân vùng thời gian (Nếu đỗ sai cụm ưu tiên thì cộng 15.0 điểm chi phí)
+        zone_penalty = 0.0 if b_id in preferred_blocks else 15.0
+
+        cost = w1 * energy * 10 + w2 * abs(urgency - ideal_score) + penalty + zone_penalty
 
         if cost < min_cost:
             min_cost = cost
@@ -84,7 +98,8 @@ def find_optimal_block(weight, duration):
     return {
         "assigned_block": best_block,
         "agv_energy": energy_used,
-        "urgency_score": urgency
+        "urgency_score": urgency,
+        "tier_name": tier_name
     }
 
 
@@ -94,7 +109,7 @@ def find_optimal_block(weight, duration):
 st.sidebar.title("🎮 Điều hành & Khai báo")
 
 st.sidebar.subheader("📋 Khai báo Xe vào Cổng")
-duration = st.sidebar.number_input("⏱️ Thời gian đỗ dự kiến (giờ):", min_value=0.5, max_value=72.0, value=2.0, step=0.5)
+duration = st.sidebar.number_input("⏱️ Thời gian đỗ dự kiến (giờ):", min_value=0.5, max_value=168.0, value=2.0, step=0.5)
 weight = st.sidebar.number_input("⚖️ Khối lượng xe (kg):", min_value=500, max_value=3500, value=1500, step=50)
 
 st.sidebar.markdown("---")
@@ -156,7 +171,7 @@ st.markdown("---")
 
 
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK (TĂNG 50% CHIỀU DÀI BLOCK DỌC)
+# 6. MÔ PHỎNG SƠ ĐỒ 9 BLOCK (GIỮ NGUYÊN KÍCH THƯỚC 234PX)
 # ==========================================
 col_map, col_info = st.columns([3.5, 1])
 
@@ -195,7 +210,6 @@ def render_block_card_html(b, mode="vertical"):
         shadow_style = "box-shadow: 0 3px 6px rgba(0,0,0,0.04);"
         text_color = "#0f172a"
 
-    # Chiều cao Block dọc tăng thêm 50% từ 156px lên 234px
     card_height = "80px" if mode == "horizontal" else "234px"
 
     return f'<div style="width: 100%; height: {card_height}; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; background: {bg_gradient}; border: {border_style}; border-radius: 8px; padding: 8px 6px; text-align: center; font-family: system-ui, -apple-system, sans-serif; {shadow_style}"><div style="font-size: 14px; font-weight: 800; color: {text_color}; margin-bottom: 8px;">🏢 {b["name"]}</div><div style="margin-bottom: 10px;">{status_tag}</div><div style="font-size: 12px; font-weight: 700; color: {text_color}; margin-bottom: 12px;">{b["occupied"]} / {b["capacity"]} xe</div><div style="background-color: rgba(0,0,0,0.08); border-radius: 4px; height: 8px; width: 80%; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);"><div style="background: {"linear-gradient(90deg, #f43f5e, #be123c)" if pct==100 else "linear-gradient(90deg, #3b82f6, #1d4ed8)"}; width: {pct}%; height: 100%; border-radius: 4px;"></div></div></div>'
@@ -203,7 +217,6 @@ def render_block_card_html(b, mode="vertical"):
 def render_exact_grid():
     bd = get_block_dict()
 
-   # Thanh phân cách giữa các Block 1, 2, 3 được tăng chiều cao đồng bộ lên 234px
     path_v = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 234px; width: 8px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; color: #94a3b8;">↕</div>'
 
     grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 14px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box;">
@@ -299,6 +312,7 @@ with col_info:
         st.success(f"""
         🎯 **GÁN VẬN CHUYỂN ĐẾN:**
         ### **{assigned_b['name']}**
+        * **Phân loại đỗ:** `{last_res.get('tier_name', '')}`
         * **Sức chứa:** `{assigned_b['occupied']} / {assigned_b['capacity']} xe`
         * **Tiêu thụ pin AGV dự kiến:** `{last_res['agv_energy']} kWh`
         """)
@@ -315,8 +329,7 @@ with col_info:
     """)
 
     st.markdown("---")
-    st.caption("**Quy tắc sơ đồ 9 Block:**")
-    st.caption("🟢 **TRỐNG**: Khối đỗ còn chỗ")
-    st.caption("🔴 **ĐÃ ĐẦY**: Khối đỗ đã kín xe")
-    st.caption("🔒 **KHÓA**: Khối đỗ tạm khóa")
-    st.caption("🎯 **AGV CHỌN**: Vừa được Robot chọn")
+    st.caption("**Quy tắc phân vùng thời gian:**")
+    st.caption("⏱️ **≤ 5h**: Block 1, 2, 3, 4, 7 (Cận cổng)")
+    st.caption("📅 **5h - 24h**: Block 1, 5, 9 (Tầng giữa)")
+    st.caption("🧱 **> 24h**: Block 5, 6, 8 (Vùng sâu)")
