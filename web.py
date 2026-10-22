@@ -1,292 +1,307 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
 
-# ==========================================
-# 1. CẤU HÌNH TRANG WEB
-# ==========================================
+# ---------------------------------------------------------
+# 1. CẤU HÌNH TRANG STREAMLIT
+# ---------------------------------------------------------
 st.set_page_config(
-    page_title="Hệ thống Bãi đỗ xe Tự động",
+    page_title="Mô phỏng Thuật toán Chọn Block Bãi Đỗ AGV",
     page_icon="🚗",
     layout="wide"
 )
 
-# ==========================================
-# ==========================================
-# 2. KHỞI TẠO BỘ NHỚ BÃI ĐỖ XE (60 Ô / TẦNG)
-# ==========================================
-if "parking_slots" not in st.session_state:
-    slots = []
-    floors = ["Tầng 1", "Tầng B1", "Tầng B2"]
-    
-    for floor in floors:
-        for y in range(1, 7):
-            for x in range(1, 11):
-                slot_id = f"X{x}Y{y}"
-                
-                # Các ô nằm sát Làn đường chính (Hàng Y3 và Y4) ở Tầng 1 là ô ưu tiên
-                is_priority_slot = True if (floor == "Tầng 1" and y in [3, 4] and x <= 5) else False
-                
-                slots.append({
-                    "floor": floor,
-                    "id": slot_id,
-                    "x": x,
-                    "y": y,
-                    "status": "TRỐNG",
-                    "is_priority_slot": is_priority_slot
-                })
-                
-    st.session_state.parking_slots = slots
+st.title("🚗 Hệ Thống Trực Quan Hóa Thuật Toán Chọn Block Ô Đỗ AGV")
+st.markdown("""
+*Mô hình hỗ trợ ra quyết định chọn **Tòa/Block ô đỗ xe** tối ưu cho robot AGV dựa trên **Khối lượng xe** và **Thời gian đỗ dự kiến**.*
+""")
 
-if "last_assigned_slot" not in st.session_state:
-    st.session_state.last_assigned_slot = None
+# ---------------------------------------------------------
+# 2. KHỞI TẠO DỮ LIỆU CÁC BLOCK BÃI ĐỖ (Mô phỏng sơ đồ 2D)
+# ---------------------------------------------------------
+@st.cache_data
+def get_initial_blocks():
+    # Vị trí cổng nhận/trả xe đặt tại tọa độ (0, 0)
+    data = [
+        {"block_id": "Block A", "x": 15, "y": 10, "capacity": 30, "occupied": 25, "floors": 3},
+        {"block_id": "Block B", "x": 35, "y": 10, "capacity": 30, "occupied": 18, "floors": 3},
+        {"block_id": "Block C", "x": 55, "y": 10, "capacity": 30, "occupied": 29, "floors": 3},
+        {"block_id": "Block D", "x": 15, "y": 35, "capacity": 30, "occupied": 12, "floors": 3},
+        {"block_id": "Block E", "x": 35, "y": 35, "capacity": 30, "occupied": 8,  "floors": 3},
+        {"block_id": "Block F", "x": 55, "y": 35, "capacity": 30, "occupied": 30, "floors": 3}, # Full
+    ]
+    df = pd.DataFrame(data)
+    # Tính khoảng cách Euclidean từ Cổng (0,0) đến tâm từng Block
+    df["distance"] = np.sqrt(df["x"]**2 + df["y"]**2).round(1)
+    return df
 
-# ==========================================
-# 3. THANH BÊN (SIDEBAR) - KHAI BÁO & QUẢN TRỊ
-# ==========================================
-st.sidebar.header("📋 Khai báo Xe vào Cổng")
+blocks_df = get_initial_blocks().copy()
 
-is_priority = st.sidebar.checkbox("⚡ Đối tượng Ưu tiên")
+# ---------------------------------------------------------
+# 3. SIDEBAR - ĐẦU VÀO DỮ LIỆU KHÁCH HÀNG & THAM SỐ
+# ---------------------------------------------------------
+st.sidebar.header("📥 1. Thông Tin Xe & Yêu Cầu")
 
-duration = st.sidebar.number_input(
-    "⏱️ Thời gian đỗ dự kiến (giờ):",
-    min_value=0.0,
-    max_value=168.0,
-    value=2.0,
-    step=0.5
+# Kịch bản mẫu nhanh
+scenario = st.sidebar.selectbox(
+    "Chọn kịch bản nhanh:",
+    ["Tùy chỉnh", "Xe điện nặng - Đỗ ngắn hạn (1h)", "Xe SUV trung bình - Đỗ trong ngày (5h)", "Xe Sedan nhẹ - Đỗ dài hạn (48h)"]
 )
 
-# --- CHẾ ĐỘ QUẢN TRỊ VIÊN (ADMIN MODE) ---
-st.sidebar.markdown("---")
-admin_mode = st.sidebar.checkbox("🛡️ Chế độ Quản trị viên (Admin)")
+if scenario == "Xe điện nặng - Đỗ ngắn hạn (1h)":
+    init_weight, init_time = 2800, 1.0
+elif scenario == "Xe SUV trung bình - Đỗ trong ngày (5h)":
+    init_weight, init_time = 2000, 5.0
+elif scenario == "Xe Sedan nhẹ - Đỗ dài hạn (48h)":
+    init_weight, init_time = 1300, 48.0
+else:
+    init_weight, init_time = 1800, 2.5
 
-if admin_mode:
-    st.sidebar.subheader("⚙️ Quản lý Khóa / Mở ô đỗ")
-    selected_floor_admin = st.sidebar.selectbox("Chọn tầng:", ["Tầng 1", "Tầng B1", "Tầng B2"])
+car_weight = st.sidebar.number_input("Khối lượng xe W_car (kg):", min_value=800, max_value=4000, value=init_weight, step=100)
+park_duration = st.sidebar.number_input("Thời gian dự kiến đỗ T_park (giờ):", min_value=0.5, max_value=168.0, value=init_time, step=0.5)
+
+st.sidebar.markdown("---")
+st.sidebar.header("⚙️ 2. Trọng Số Thuật Toán")
+w_energy = st.sidebar.slider("Ưu tiên Năng lượng AGV (w_energy):", 0.0, 1.0, 0.45, 0.05)
+w_retrieval = st.sidebar.slider("Ưu tiên Thời gian trả xe (w_retrieval):", 0.0, 1.0, 0.35, 0.05)
+w_balance = st.sidebar.slider("Ưu tiên Cân bằng tải bãi (w_balance):", 0.0, 1.0, 0.20, 0.05)
+
+# Chuẩn hóa tổng trọng số = 1
+total_w = w_energy + w_retrieval + w_balance
+if total_w > 0:
+    w_energy_norm = w_energy / total_w
+    w_retrieval_norm = w_retrieval / total_w
+    w_balance_norm = w_balance / total_w
+else:
+    w_energy_norm = w_retrieval_norm = w_balance_norm = 1/3
+
+# ---------------------------------------------------------
+# 4. HÀM TÍNH TOÁN THUẬT TOÁN (CORE ALGORITHM)
+# ---------------------------------------------------------
+def run_block_selection_algorithm(df, weight, duration, w_e, w_r, w_b):
+    df_calc = df.copy()
     
-    # Lấy danh sách ID các ô thuộc tầng đang chọn
-    floor_slot_ids = [s["id"] for s in st.session_state.parking_slots if s["floor"] == selected_floor_admin]
+    # Kiểm tra trạng thái ô còn trống
+    df_calc["available_slots"] = df_calc["capacity"] - df_calc["occupied"]
+    df_calc["is_full"] = df_calc["available_slots"] <= 0
     
-    selected_slots_to_toggle = st.sidebar.multiselect(
-        "Chọn các ô cần thao tác:",
-        options=floor_slot_ids,
-        placeholder="Chọn một hoặc nhiều ô..."
+    # Hệ số hằng số vật lý AGV
+    alpha = 0.01  # Chi phí di chuyển ngang/m/kg
+    beta = 2.0    # Chi phí nâng trung bình 3 tầng
+    gamma = 5.0   # Hệ số quy đổi tầng sang khoảng cách
+    
+    # 1. Chi phí năng lượng raw
+    df_calc["raw_energy"] = weight * (alpha * df_calc["distance"] + beta)
+    
+    # 2. Chi phí thời gian truy xuất raw
+    df_calc["raw_retrieval"] = (df_calc["distance"] + gamma) / (duration + 0.1)
+    
+    # 3. Chi phí cân bằng tải raw (Tỷ lệ lấp đầy bình phương)
+    df_calc["occupancy_rate"] = df_calc["occupied"] / df_calc["capacity"]
+    df_calc["raw_balance"] = df_calc["occupancy_rate"] ** 2
+
+    # Chuẩn hóa Min-Max các thành phần về dải [0, 1] để kết hợp trọng số
+    def min_max(series):
+        s_min, s_max = series.min(), series.max()
+        if s_max == s_min:
+            return pd.Series(0.0, index=series.index)
+        return (series - s_min) / (s_max - s_min)
+
+    df_calc["norm_energy"] = min_max(df_calc["raw_energy"])
+    df_calc["norm_retrieval"] = min_max(df_calc["raw_retrieval"])
+    df_calc["norm_balance"] = min_max(df_calc["raw_balance"])
+
+    # Tính Tổng Điểm Chi Phí (Cost Score)
+    df_calc["total_score"] = (
+        w_e * df_calc["norm_energy"] +
+        w_r * df_calc["norm_retrieval"] +
+        w_b * df_calc["norm_balance"]
     )
     
-    col_lock, col_unlock = st.sidebar.columns(2)
+    # Đặt chi phí vô cùng cho các Block đã đầy
+    df_calc.loc[df_calc["is_full"], "total_score"] = 999.0
+
+    return df_calc
+
+result_df = run_block_selection_algorithm(
+    blocks_df, car_weight, park_duration, 
+    w_energy_norm, w_retrieval_norm, w_balance_norm
+)
+
+# Tìm Block được khuyến nghị (Score nhỏ nhất và không đầy)
+valid_blocks = result_df[~result_df["is_full"]]
+best_block = valid_blocks.loc[valid_blocks["total_score"].idxmin()] if not valid_blocks.empty else None
+
+# ---------------------------------------------------------
+# 5. HIỂN THỊ KẾT QUẢ NỔI BẬT (METRICS)
+# ---------------------------------------------------------
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+with col_m1:
+    st.metric(
+        label="🎯 Block Được Chọn Tối Ưu",
+        value=best_block["block_id"] if best_block is not None else "Hết chỗ",
+        delta="Khuyên dùng" if best_block is not None else "Cảnh báo"
+    )
+with col_m2:
+    st.metric(
+        label="📏 Khoảng Cách Đến Cổng",
+        value=f"{best_block['distance']} m" if best_block is not None else "N/A"
+    )
+with col_m3:
+    st.metric(
+        label="📊 Tỷ Lệ Lấp Đầy Block",
+        value=f"{int(best_block['occupancy_rate']*100)}%" if best_block is not None else "N/A",
+        delta=f"Còn trống {best_block['available_slots']} ô" if best_block is not None else "0 ô"
+    )
+with col_m4:
+    st.metric(
+        label="⚡ Điểm Chi Phí (Cost Score)",
+        value=f"{best_block['total_score']:.3f}" if best_block is not None else "N/A",
+        help="Điểm càng thấp càng tối ưu"
+    )
+
+st.markdown("---")
+
+# ---------------------------------------------------------
+# 6. TRỰC QUAN HÓA SƠ ĐỒ BÃI ĐỖ (PLOTLY 2D MAP)
+# ---------------------------------------------------------
+left_col, right_col = st.columns([6, 4])
+
+with left_col:
+    st.subheader("🗺️ Sơ Đồ Trực Quan Vị Trí Các Block")
     
-    # Nút Khóa ô
-    if col_lock.button("🔒 Khóa ô", use_container_width=True):
-        if selected_slots_to_toggle:
-            for s in st.session_state.parking_slots:
-                if s["floor"] == selected_floor_admin and s["id"] in selected_slots_to_toggle:
-                    s["status"] = "ĐÃ KHÓA"
-            st.sidebar.success(f"Đã KHÓA {len(selected_slots_to_toggle)} ô tại {selected_floor_admin}!")
-            st.rerun()
-            
-    # Nút Mở khóa ô
-    if col_unlock.button("🔓 Mở khóa", use_container_width=True):
-        if selected_slots_to_toggle:
-            for s in st.session_state.parking_slots:
-                if s["floor"] == selected_floor_admin and s["id"] in selected_slots_to_toggle:
-                    s["status"] = "TRỐNG"
-            st.sidebar.success(f"Đã MỞ KHÓA {len(selected_slots_to_toggle)} ô tại {selected_floor_admin}!")
-            st.rerun()
+    fig = go.Figure()
 
-    # Nút Reset bãi đỗ xe
-    if st.sidebar.button("🔄 Reset toàn bộ bãi đỗ", use_container_width=True):
-        for s in st.session_state.parking_slots:
-            s["status"] = "TRỐNG"
-        st.session_state.last_assigned_slot = None
-        st.sidebar.info("Đã đặt lại tất cả các ô về trạng thái TRỐNG!")
-        st.rerun()
+    # 1. Vẽ Cổng Nhận/Trả Xe (Gate) tại (0, 0)
+    fig.add_trace(go.Scatter(
+        x=[0], y=[0],
+        mode="markers+text",
+        marker=dict(size=24, color="red", symbol="star"),
+        name="Cổng Ra/Vào",
+        text=["🚪 CỔNG RA/VÀO"],
+        textposition="top center"
+    ))
 
-st.sidebar.markdown("---")
+    # 2. Vẽ các Block ô đỗ
+    for _, row in result_df.iterrows():
+        is_selected = (best_block is not None) and (row["block_id"] == best_block["block_id"])
+        
+        # Thiết lập màu sắc và kích thước marker
+        if row["is_full"]:
+            color = "#7f8c8d"  # Xám nếu đầy
+            status_text = "ĐÃ ĐẦY"
+        elif is_selected:
+            color = "#2ecc71"  # Xanh lá sáng nếu được chọn
+            status_text = "⭐ ĐƯỢC CHỌN"
+        else:
+            color = "#3498db"  # Xanh dương mặc định
+            status_text = f"Điểm: {row['total_score']:.2f}"
 
-# ==========================================
-# 4. LOGIC THUẬT TOÁN PHÂN BỔ VỊ TRÍ
-# ==========================================
-def find_best_slot(duration, is_priority):
-    all_slots = st.session_state.parking_slots
-    floors_order = ["Tầng 1", "Tầng B1", "Tầng B2"]
+        # Vẽ hình khối Block
+        fig.add_trace(go.Scatter(
+            x=[row["x"]], y=[row["y"]],
+            mode="markers+text",
+            marker=dict(
+                size=45 if is_selected else 35,
+                color=color,
+                symbol="square",
+                line=dict(width=3 if is_selected else 1, color="black")
+            ),
+            name=row["block_id"],
+            text=[f"<b>{row['block_id']}</b><br>{status_text}"],
+            textposition="middle center",
+            hoverinfo="text",
+            hovertext=(
+                f"<b>{row['block_id']}</b><br>"
+                f"Khoảng cách: {row['distance']}m<br>"
+                f"Đã đỗ: {row['occupied']}/{row['capacity']} ô ({int(row['occupancy_rate']*100)}%)<br>"
+                f"Điểm Chi Phí Tổng: {row['total_score']:.3f}"
+            )
+        ))
+
+        # Đường nối từ cổng đến Block được chọn
+        if is_selected:
+            fig.add_trace(go.Scatter(
+                x=[0, row["x"]], y=[0, row["y"]],
+                mode="lines",
+                line=dict(color="#2ecc71", width=3, dash="dash"),
+                showlegend=False
+            ))
+
+    fig.update_layout(
+        xaxis=dict(title="Tọa độ X (m)", range=[-5, 70]),
+        yaxis=dict(title="Tọa độ Y (m)", range=[-5, 50]),
+        height=450,
+        margin=dict(l=20, r=20, t=30, b=20),
+        showlegend=False
+    )
     
-    # CASE 1: ĐỐI TƯỢNG ƯU TIÊN -> Ưu tiên ô X1, X2 tại Tầng 1
-    if is_priority:
-        priority_slots = [
-            s for s in all_slots 
-            if s["floor"] == "Tầng 1" and s["is_priority_slot"] and s["status"] == "TRỐNG"
-        ]
-        if priority_slots:
-            priority_slots[0]["status"] = "ĐÃ ĐỖ"
-            return priority_slots[0]
+    st.plotly_chart(fig, use_container_width=True)
 
-    # CASE 2: XÁC ĐỊNH TẦNG MỤC TIÊU BAN ĐẦU THEO THỜI GIAN
-    if is_priority or duration <= 2.0:
-        target_floor = "Tầng 1"   # Ngắn hạn (<= 2h)
-    elif duration <= 8.0:
-        target_floor = "Tầng B1"  # Trung hạn (2 - 8h)
-    else:
-        target_floor = "Tầng B2"  # Dài hạn (> 8h)
-
-    start_idx = floors_order.index(target_floor)
-    search_order = floors_order[start_idx:] + floors_order[:start_idx]
-
-    # DUYỆT TỪNG TẦNG THEO THỨ TỰ (Tự động bỏ qua các ô status == "ĐÃ KHÓA")
-    for current_floor in search_order:
-        available = [
-            s for s in all_slots 
-            if s["floor"] == current_floor and s["status"] == "TRỐNG"
-        ]
-
-        if current_floor == "Tầng 1" and not is_priority:
-            normal_t1 = [s for s in available if not s["is_priority_slot"]]
-            if normal_t1:
-                available = normal_t1
-
-        if available:
-            selected_slot = available[0]
-            selected_slot["status"] = "ĐÃ ĐỖ"
-
-            if current_floor != target_floor:
-                st.sidebar.warning(f"⚠️ **{target_floor}** đã hết chỗ khả dụng! Đã tự động chuyển ô đỗ sang **{current_floor}**.")
-
-            return selected_slot
-
-    return None
-
-# NÚT ĐỖ XE THEO GỢI Ý
-if st.sidebar.button("🎯 ĐỖ XE THEO GỢI Ý", use_container_width=True):
-    slot = find_best_slot(duration, is_priority)
-    if slot:
-        st.session_state.last_assigned_slot = slot
-        st.sidebar.success(f"✅ Gán ô thành công: **{slot['id']}** (**{slot['floor']}**)")
-    else:
-        st.session_state.last_assigned_slot = "FULL"
-        st.sidebar.error("⛔ **RẤT TIẾC: TOÀN BỘ BÃI ĐỖ XE ĐÃ HẾT CHỖ TRỐNG KHẢ DỤNG!**")
-
-# ==========================================
-# 5. HIỂN THỊ TIÊU ĐỀ & THỐNG KÊ TỔNG QUAN
-# ==========================================
-st.title("🚗 Hệ thống Tối ưu Bãi đỗ xe Tự động")
-
-total_slots = len(st.session_state.parking_slots)
-occupied_slots = sum(1 for s in st.session_state.parking_slots if s["status"] == "ĐÃ ĐỖ")
-locked_slots = sum(1 for s in st.session_state.parking_slots if s["status"] == "ĐÃ KHÓA")
-free_slots = total_slots - occupied_slots - locked_slots
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Tổng quy mô", f"{total_slots} ô")
-col2.metric("Ô còn trống", f"{free_slots} ô")
-col3.metric("Xe đã đỗ", f"{occupied_slots} xe")
-col4.metric("Ô tạm khóa", f"{locked_slots} ô")
-
-st.divider()
-
-# ==========================================
-# 6. GIAO DIỆN SƠ ĐỒ SÀN & CHỈ DẪN HỆ THỐNG
-# ==========================================
-col_map, col_info = st.columns([3.2, 1])
-
-def render_custom_grid_map(floor_name):
-    slots = [s for s in st.session_state.parking_slots if s["floor"] == floor_name]
-    last_assigned = st.session_state.last_assigned_slot
-
-    top_rows = [6, 5, 4]
-    bottom_rows = [3, 2, 1]
-
-    def build_grid_html(row_list):
-        grid_html = '<div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-bottom: 8px;">'
-        for y in row_list:
-            for x in range(1, 11):
-                slot = next((s for s in slots if s["x"] == x and s["y"] == y), None)
-                if not slot:
-                    continue
-                
-                is_last = (isinstance(last_assigned, dict) and last_assigned.get("id") == slot["id"] and last_assigned.get("floor") == floor_name)
-                
-                if is_last:
-                    bg_color = "#c6f6d5"
-                    border_color = "#38a169"
-                    text_color = "#22543d"
-                    status_text = "CHỌN 🎯"
-                elif slot["status"] == "ĐÃ KHÓA":
-                    bg_color = "#e2e8f0"
-                    border_color = "#a0aec0"
-                    text_color = "#4a5568"
-                    status_text = "🔒 KHÓA"
-                elif slot["status"] == "ĐÃ ĐỖ":
-                    bg_color = "#fed7d7"
-                    border_color = "#e53e3e"
-                    text_color = "#9b2c2c"
-                    status_text = "ĐÃ ĐỖ"
-                elif slot["is_priority_slot"]:
-                    bg_color = "#fefcbf"
-                    border_color = "#d69e2e"
-                    text_color = "#744210"
-                    status_text = "ƯU TIÊN ⭐"
-                else:
-                    bg_color = "#ffffff"
-                    border_color = "#cbd5e0"
-                    text_color = "#2d3748"
-                    status_text = "TRỐNG"
-
-                grid_html += f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 6px; padding: 6px 2px; text-align: center; font-family: sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"><div style="font-size: 11px; font-weight: 800; color: {text_color};">{slot["id"]}</div><div style="font-size: 9px; font-weight: 700; color: {text_color}; margin-top: 2px;">{status_text}</div></div>'
-        grid_html += '</div>'
-        return grid_html
-
-    map_html = f'''<div style="background-color: #ffffff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-{build_grid_html(top_rows)}
-<div style="display: flex; align-items: center; justify-content: space-between; background-color: #edf2f7; border: 2px dashed #cbd5e0; border-radius: 8px; padding: 8px 14px; margin: 12px 0; font-family: sans-serif;">
-<span style="background-color: #fefcbf; color: #744210; border: 1px solid #d69e2e; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 CỔNG VÀO</span>
-<span style="font-size: 12px; font-weight: bold; color: #4a5568; letter-spacing: 1px;">🚗 LÀN ĐƯỜNG CHÍNH (MAIN DRIVEWAY) ──────────────────►</span>
-<span style="background-color: #c6f6d5; color: #22543d; border: 1px solid #38a169; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold;">🚪 LỐI RA</span>
-</div>
-{build_grid_html(bottom_rows)}
-</div>'''
-
-    st.markdown(map_html, unsafe_allow_html=True)
-
-# --- CỘT TRÁI: SƠ ĐỒ BÃI ĐỖ XE ---
-with col_map:
-    st.subheader("🗺️ Sơ đồ Mặt bằng Bãi đỗ xe")
+with right_col:
+    st.subheader("📊 So Sánh Điểm Chi Phí Giữa Các Block")
     
-    tab1, tab2, tab3 = st.tabs([
-        "Tầng 1 (Cổng Ra/Vào & Ngắn hạn)", 
-        "Tầng B1 (Trung hạn)", 
-        "Tầng B2 (Dài hạn)"
-    ])
+    # Biểu đồ cột phân tích chi phí
+    df_chart = result_df.sort_values(by="total_score")
     
-    with tab1:
-        render_custom_grid_map("Tầng 1")
-    with tab2:
-        render_custom_grid_map("Tầng B1")
-    with tab3:
-        render_custom_grid_map("Tầng B2")
+    fig_bar = px.bar(
+        df_chart,
+        x="block_id",
+        y=["norm_energy", "norm_retrieval", "norm_balance"],
+        title="Phân Tích Thành Phần Chi Phí (Chuẩn Hóa)",
+        labels={"value": "Điểm Thành Phần (0 - 1)", "block_id": "Tòa / Block", "variable": "Thành phần"},
+        color_discrete_map={
+            "norm_energy": "#e74c3c",     # Đỏ: Năng lượng
+            "norm_retrieval": "#f1c40f",  # Vàng: Thời gian truy xuất
+            "norm_balance": "#9b59b6"     # Tím: Cân bằng tải
+        },
+        barmode="stack"
+    )
+    fig_bar.update_layout(height=450, margin=dict(l=20, r=20, t=40, b=20))
+    st.plotly_chart(fig_bar, use_container_width=True)
 
-# --- CỘT PHẢI: CHỈ DẪN HỆ THỐNG & KHAI BÁO ---
-with col_info:
-    st.subheader("📌 Chỉ dẫn Hệ thống")
-    
-    last_slot = st.session_state.last_assigned_slot
-    
-    if last_slot == "FULL":
-        st.error("⛔ **THÔNG BÁO TỪ HỆ THỐNG:**\n\nHiện tại tất cả các tầng (**Tầng 1, B1, B2**) đều đã **KÍN CHỖ HOẶC ĐÃ BỊ KHÓA**. Vui lòng quay lại sau!")
-    elif isinstance(last_slot, dict):
-        st.success(f"🎯 **Ô CHỌN GẮN: {last_slot['id']}**\n\n*(Thuộc {last_slot['floor']})*")
-    else:
-        st.info("🎯 **Chưa có ô đỗ nào được chọn.**\n\nNhấn nút 'ĐỖ XE THEO GỢI Ý' ở thanh bên để gán vị trí.")
+# ---------------------------------------------------------
+# 7. BẢNG DỮ LIỆU CHI TIẾT & GIẢI THÍCH LÝ DO
+# ---------------------------------------------------------
+st.subheader("📋 Bảng Số Liệu Chi Tiết Đánh Giá Thuật Toán")
 
-    st.markdown("---")
-    st.subheader("ℹ️ Thông tin Khai báo")
-    
-    st.markdown(f"""
-    * **Đối tượng:** {"⚡ Ưu tiên" if is_priority else "🚗 Thông thường"}
-    * **Thời gian đỗ:** `{duration} giờ`
-    * **Tầng hầm dự kiến:** `{ "Tầng 1" if is_priority or duration <= 2 else ("Tầng B1" if duration <= 8 else "Tầng B2") }`
+# Format hiển thị dataframe đẹp mắt
+display_df = result_df[[
+    "block_id", "distance", "occupied", "capacity", "available_slots",
+    "norm_energy", "norm_retrieval", "norm_balance", "total_score"
+]].copy()
+
+display_df.columns = [
+    "Block", "Khoảng Cách (m)", "Đã Đỗ", "Tổng Ô", "Ô Trống",
+    "CP Năng Lượng", "CP Trả Xe", "CP Cân Bằng", "Tổng Điểm Chi Phí"
+]
+
+# Highlight dòng được chọn
+def highlight_best(row):
+    if best_block is not None and row["Block"] == best_block["block_id"]:
+        return ['background-color: #d4edda; font-weight: bold'] * len(row)
+    return [''] * len(row)
+
+st.dataframe(
+    display_df.style.apply(highlight_best, axis=1).format({
+        "Khoảng Cách (m)": "{:.1f}",
+        "CP Năng Lượng": "{:.3f}",
+        "CP Trả Xe": "{:.3f}",
+        "CP Cân Bằng": "{:.3f}",
+        "Tổng Điểm Chi Phí": "{:.3f}"
+    }),
+    use_container_width=True
+)
+
+# 💡 Giải thích quyết định của thuật toán
+if best_block is not None:
+    st.info(f"""
+    💡 **Giải thích lý do thuật toán chọn {best_block['block_id']}:**
+    * **Khối lượng xe:** {car_weight} kg | **Thời gian đỗ:** {park_duration} giờ.
+    * **Năng lượng tiêu thụ:** Block cách cổng {best_block['distance']}m, tối ưu công di chuyển ngang của AGV.
+    * **Thời gian đáp ứng:** Đáp ứng tốt chu kỳ lấy xe dự kiến {park_duration}h.
+    * **Tải trọng bãi:** Block hiện mới lấp đầy {int(best_block['occupancy_rate']*100)}%, tránh hiện tượng tắc nghẽn giao thông AGV.
     """)
-    
-    st.markdown("---")
-    st.caption("**Chú thích màu sắc:**")
-    st.caption("🟢 **TRỐNG**: Ô đỗ còn trống")
-    st.caption("🔴 **ĐÃ ĐỖ**: Ô đỗ đã có xe")
-    st.caption("🔒 **KHÓA**: Ô tạm khóa / Bảo trì")
-    st.caption("🟡 **ƯU TIÊN**: Ô đắc địa gần ra/vào (Tầng 1)")
-    st.caption("🟢 **CHỌN 🎯**: Vị trí hệ thống vừa gán")
