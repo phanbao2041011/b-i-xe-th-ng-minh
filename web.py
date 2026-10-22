@@ -157,7 +157,8 @@ col4.metric("Số Block tạm khóa", f"{locked_blocks_count} / 8")
 st.divider()
 
 # ==========================================
-# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK & VÙNG ĐỆM CAMERA AI / AGV MANEUVERING ZONE
+# ==========================================
+# 6. MÔ PHỎNG SƠ ĐỒ 8 BLOCK & VÙNG ĐỆM CAMERA AI / AGV (ĐÃ SỬA LỖI LỆNH HTML THÔ)
 # ==========================================
 col_map, col_info = st.columns([3.3, 1])
 
@@ -171,7 +172,6 @@ def render_block_card_html(b, is_vertical=False):
     is_assigned = (last_b_id == b["id"])
     pct = int((b["occupied"] / b["capacity"]) * 100)
 
-    # ĐỊNH DẠNG KHỐI TÒA NHÀ 3D CHUẨN TỶ LỆ
     if b["is_locked"]:
         status_tag = '<span style="background-color: #475569; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">🔒 KHÓA</span>'
         bg_gradient = "linear-gradient(145deg, #e2e8f0, #cbd5e1)"
@@ -207,35 +207,20 @@ def render_exact_grid():
     path_v_inner = '<div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 4px; height: 100%; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 8px; font-weight: 600; color: #94a3b8; letter-spacing: 1px;">↕ AGV</div>'
 
     grid_layout_html = f'''<div style="background-color: #ffffff; border-radius: 16px; padding: 20px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-
-<!-- KHU VỰC CÁC KHỐI BLOCK CHÍNH (8 BLOCK) -->
 <div style="display: grid; grid-template-columns: 110px 18px 1fr 18px 110px; gap: 6px; align-items: stretch; margin-bottom: 16px;">
-
-<!-- CỘT 1: BLOCK 8 -->
 <div>{render_block_card_html(bd["Block 8"], is_vertical=True)}</div>
-
-<!-- CỘT 2: LỐI ĐI AGV DỌC TRÁI -->
 <div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 2px;">
 ↕ LÀN AGV DỌC TRÁI
 </div>
-
-<!-- CỘT 3: KHU VỰC TRUNG TÂM -->
 <div style="display: flex; flex-direction: column; gap: 10px;">
 <div>{render_block_card_html(bd["Block 6"])}</div>
-
-<!-- LÀN AGV NGANG 1 -->
 <div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 10px; text-align: center; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1.5px;">
 ↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 1)
 </div>
-
 <div>{render_block_card_html(bd["Block 5"])}</div>
-
-<!-- LÀN AGV NGANG 2 -->
 <div style="background: repeating-linear-gradient(90deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; padding: 3px 10px; text-align: center; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1.5px;">
 ↔ LÀN DI CHUYỂN AGV (HÀNG NGANG 2)
 </div>
-
-<!-- HÀNG CÁC BLOCK 1, 2, 3, 4 DỜI THOÁNG ĐẠT CHIỀU CAO ĐỒNG BỘ -->
 <div style="display: grid; grid-template-columns: 1fr 12px 1fr 12px 1fr 12px 1fr; gap: 2px; align-items: stretch;">
 <div>{render_block_card_html(bd["Block 1"])}</div>
 {path_v_inner}
@@ -246,36 +231,27 @@ def render_exact_grid():
 <div>{render_block_card_html(bd["Block 4"])}</div>
 </div>
 </div>
-
-<!-- CỘT 4: LỐI ĐI AGV DỌC PHẢI -->
 <div style="background: repeating-linear-gradient(180deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 2px;">
 ↕ LÀN AGV DỌC PHẢI
 </div>
-
-<!-- CỘT 5: BLOCK 7 -->
 <div>{render_block_card_html(bd["Block 7"], is_vertical=True)}</div>
 </div>
-
-<!-- KHU VỰC ĐỆM TIẾP NHẬN - QUÉT CAMERA AI & XOAY SỞ AGV (BÊN NGOÀI BÃI ĐỖ CHÍNH) -->
 <div style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px dashed #94a3b8; border-radius: 12px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-    <div style="background-color: #fee2e2; color: #991b1b; border: 1.5px solid #f87171; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,0.05); white-space: nowrap;">
-        🚪 CỔNG RA (EXIT)
-    </div>
-    
-    <div style="text-align: center; flex-grow: 1; padding: 4px;">
-        <div style="font-size: 12px; font-weight: 800; color: #334155; letter-spacing: 1px; margin-bottom: 2px;">
-            📸 VÙNG ĐỆM THAO TÁC XOAY SỞ AGV & TRẠM QUÉT CAMERA AI
-        </div>
-        <div style="font-size: 10px; color: #64748b; font-weight: 600;">
-            🤖 Thu thập dữ liệu trọng lượng, quét biển số & điều hướng Robot quay 360°
-        </div>
-    </div>
-    
-    <div style="background-color: #dcfce7; color: #166534; border: 1.5px solid #4ade80; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,0.05); white-space: nowrap;">
-        🚪 CỔNG VÀO (ENTRY)
-    </div>
+<div style="background-color: #fee2e2; color: #991b1b; border: 1.5px solid #f87171; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,0.05); white-space: nowrap;">
+🚪 CỔNG RA (EXIT)
 </div>
-
+<div style="text-align: center; flex-grow: 1; padding: 4px;">
+<div style="font-size: 12px; font-weight: 800; color: #334155; letter-spacing: 1px; margin-bottom: 2px;">
+📸 VÙNG ĐỆM THAO TÁC XOAY SỞ AGV & TRẠM QUÉT CAMERA AI
+</div>
+<div style="font-size: 10px; color: #64748b; font-weight: 600;">
+🤖 Thu thập dữ liệu trọng lượng, quét biển số & điều hướng Robot quay 360°
+</div>
+</div>
+<div style="background-color: #dcfce7; color: #166534; border: 1.5px solid #4ade80; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,0.05); white-space: nowrap;">
+🚪 CỔNG VÀO (ENTRY)
+</div>
+</div>
 </div>'''
 
     st.markdown(grid_layout_html, unsafe_allow_html=True)
