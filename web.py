@@ -108,3 +108,30 @@ w_b = st.sidebar.slider("Ưu tiên Cân bằng tải:", 0.0, 1.0, 0.20, 0.05)  #
 # 4. HÀM TÍNH TOÁN CHỌN BLOCK
 # ---------------------------------------------------------
 def evaluate_blocks(df, weight, duration, we, wr, wb):
+    # ---------------------------------------------------------
+# 4. HÀM TÍNH TOÁN CHỌN BLOCK
+# ---------------------------------------------------------
+def evaluate_blocks(df, weight, duration, we, wr, wb):
+    calc = df.copy()
+    calc["available"] = calc["cap"] - calc["occ"]
+    calc["is_full"] = calc["available"] <= 0
+    
+    alpha, beta, gamma = 0.01, 2.5, 3.0
+    calc["raw_energy"] = weight * (alpha * calc["distance"] + beta)
+    calc["raw_retrieval"] = (calc["distance"] + gamma) / (duration + 0.1)
+    calc["occ_rate"] = calc["occ"] / calc["cap"]
+    calc["raw_balance"] = calc["occ_rate"] ** 2
+
+    def min_max(s):
+        return (s - s.min()) / (s.max() - s.min()) if s.max() != s.min() else pd.Series(0.0, index=s.index)
+
+    tot_w = we + wr + wb
+    we_n, wr_n, wb_n = (we/tot_w, wr/tot_w, wb/tot_w) if tot_w > 0 else (1/3, 1/3, 1/3)
+
+    calc["norm_e"] = min_max(calc["raw_energy"])
+    calc["norm_r"] = min_max(calc["raw_retrieval"])
+    calc["norm_b"] = min_max(calc["raw_balance"])
+
+    calc["score"] = (we_n * calc["norm_e"] + wr_n * calc["norm_r"] + wb_n * calc["norm_b"])
+    calc.loc[calc["is_full"], "score"] = 999.0
+    return calc
